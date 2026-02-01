@@ -13,6 +13,7 @@ N/A - Greenfield project.
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2026-01-23 | 0.1 | Initial Architecture Draft | Winston (Architect) |
+| 2026-02-01 | 0.2 | Finalized quota strategy, RLS policies, and migration structure | Winston (Architect) |
 
 ## High Level Architecture
 
@@ -91,14 +92,30 @@ graph TD
 ## Data Models
 
 ### Profile (User)
-**Purpose:** Extension de la table `auth.users` de Supabase pour stocker les infos publiques et les préférences.
+**Purpose:** Extension de la table `auth.users` de Supabase pour stocker les infos publiques, préférences et plan d'abonnement.
 **Key Attributes:**
 - `id` (UUID): Primary Key, Foreign Key vers `auth.users`.
 - `email` (String): Pour affichage et notifications.
 - `full_name` (String): Nom d'affichage.
 - `avatar_url` (String): URL image profil.
-- `energy_credits` (Int): Le solde de "Points Neurone" (Virtual Currency).
+- `subscription_tier` (Enum): 'FREE', 'PRO', 'ENTERPRISE' - Détermine les limites applicables.
+- `energy_credits` (Int): Le solde de "Points Neurone" - **Illimité pour FREE** (pas de déduction pour quiz/chat de base).
+- `hint_credits` (Int): Compteur de hints utilisés cette semaine (FREE: max 3/semaine).
+- `hint_credits_reset_at` (Timestamp): Date de prochain reset hebdomadaire.
 - `created_at` (Timestamp): Date d'inscription.
+- `updated_at` (Timestamp): Dernière modification.
+
+**Quota Strategy (Freemium-First):**
+- **FREE Tier:**
+  - Quiz/Chat illimités (fonctionnalité core gratuite)
+  - Hints: 3 par semaine (reset hebdomadaire)
+  - Pas de limite de notes
+  - Pas de limite de catégories
+- **PRO Tier (Future):**
+  - Hints illimités
+  - Accès à des modèles premium (GPT-4, Claude Opus)
+  - Analytics avancés
+  - Export de données
 
 ### Category
 **Purpose:** Organise les notes par sujet.
@@ -107,8 +124,10 @@ graph TD
 - `user_id` (UUID): Foreign Key vers Profile.
 - `name` (String): Titre de la catégorie (ex: "Biologie").
 - `description` (String): Sous-titre optionnel.
+- `system_prompt` (Text): Description contextuelle pour l'IA (ex: "Tu es un expert en biologie").
 - `ai_model` (String): ID du modèle OpenRouter sélectionné (ex: "anthropic/claude-3-haiku").
 - `created_at` (Timestamp): Date de création.
+- `updated_at` (Timestamp): Dernière modification.
 
 ### Note
 **Purpose:** Le contenu brut de l'utilisateur (source de vérité).
@@ -155,8 +174,12 @@ CREATE TABLE public.profiles (
   email TEXT UNIQUE NOT NULL,
   full_name TEXT,
   avatar_url TEXT,
-  energy_credits INTEGER DEFAULT 50 CHECK (energy_credits >= 0),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  subscription_tier TEXT DEFAULT 'FREE' CHECK (subscription_tier IN ('FREE', 'PRO', 'ENTERPRISE')),
+  energy_credits INTEGER DEFAULT 0, -- Not used for FREE tier (unlimited core features)
+  hint_credits INTEGER DEFAULT 0 CHECK (hint_credits >= 0), -- Counter: used hints this week
+  hint_credits_reset_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '1 week'),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 2. CATEGORIES
@@ -165,9 +188,14 @@ CREATE TABLE public.categories (
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
-  ai_model TEXT DEFAULT 'openai/gpt-3.5-turbo', -- App logic should override this with current best cheap model
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  system_prompt TEXT, -- Custom AI persona per category
+  ai_model TEXT DEFAULT 'openai/gpt-4o-mini', -- Cost-effective default
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Index for faster user category lookups
+CREATE INDEX idx_categories_user_id ON public.categories(user_id);
 
 -- 3. NOTES
 CREATE TABLE public.notes (
@@ -180,6 +208,11 @@ CREATE TABLE public.notes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Indexes for performance
+CREATE INDEX idx_notes_user_id ON public.notes(user_id);
+CREATE INDEX idx_notes_category_id ON public.notes(category_id);
+CREATE INDEX idx_notes_created_at ON public.notes(created_at DESC); -- For "recent notes" queries
 
 -- 4. USAGE LOGS (Technical Audit)
 CREATE TABLE public.usage_logs (
@@ -197,9 +230,43 @@ CREATE TABLE public.usage_logs (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usage_logs ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can only see their own notes
+-- PROFILES: Users can view and update only their own profile
+CREATE POLICY "Users can view own profile" ON public.profiles
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON public.profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+-- CATEGORIES: Full CRUD for own categories
+CREATE POLICY "Users can view own categories" ON public.categories
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own categories" ON public.categories
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own categories" ON public.categories
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own categories" ON public.categories
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- NOTES: Full CRUD for own notes
 CREATE POLICY "Users can view own notes" ON public.notes
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own notes" ON public.notes
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own notes" ON public.notes
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own notes" ON public.notes
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- USAGE_LOGS: Read-only access to own logs (for analytics)
+CREATE POLICY "Users can view own usage logs" ON public.usage_logs
   FOR SELECT USING (auth.uid() = user_id);
 
 -- TRIGGER for Profile Creation
@@ -215,6 +282,39 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Auto-update updated_at timestamp
+CREATE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_profile_updated
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+
+CREATE TRIGGER on_category_updated
+  BEFORE UPDATE ON public.categories
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+
+CREATE TRIGGER on_note_updated
+  BEFORE UPDATE ON public.notes
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+
+-- Weekly hint credits reset function (to be called by Supabase cron or edge function)
+CREATE FUNCTION public.reset_hint_credits()
+RETURNS void AS $$
+BEGIN
+  UPDATE public.profiles
+  SET 
+    hint_credits = 0, -- Reset counter to 0 (allows 3 more hints for FREE tier)
+    hint_credits_reset_at = NOW() + INTERVAL '1 week'
+  WHERE hint_credits_reset_at <= NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ## Unified Project Structure
