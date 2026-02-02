@@ -47,6 +47,7 @@ export async function middleware(request: NextRequest) {
 		!user &&
 		(request.nextUrl.pathname.startsWith("/dashboard") ||
 			request.nextUrl.pathname.startsWith("/settings") ||
+			request.nextUrl.pathname.startsWith("/profile") ||
 			request.nextUrl.pathname.startsWith("/category"))
 	) {
 		// Redirect to login
