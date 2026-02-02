@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,8 +17,20 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single();
 
+  const { data: notes } = await supabase
+    .from('notes')
+    .select('id')
+    .eq('user_id', user.id);
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('user_id', user.id);
+
   const hintsUsed = profile?.hint_credits || 0;
   const hintsRemaining = 3 - hintsUsed;
+  const notesCount = notes?.length || 0;
+  const categoriesCount = categories?.length || 0;
 
   return (
     <div className="space-y-6">
@@ -34,7 +47,7 @@ export default async function DashboardPage() {
             <span className="text-3xl">📝</span>
             <span className="text-xs text-muted-foreground">Total</span>
           </div>
-          <div className="text-2xl font-bold">0</div>
+          <div className="text-2xl font-bold">{notesCount}</div>
           <div className="text-sm text-muted-foreground">Notes created</div>
         </div>
 
@@ -43,7 +56,7 @@ export default async function DashboardPage() {
             <span className="text-3xl">📚</span>
             <span className="text-xs text-muted-foreground">Total</span>
           </div>
-          <div className="text-2xl font-bold">0</div>
+          <div className="text-2xl font-bold">{categoriesCount}</div>
           <div className="text-sm text-muted-foreground">Categories</div>
         </div>
 
@@ -58,11 +71,15 @@ export default async function DashboardPage() {
       </div>
 
       <div className="rounded-lg border p-8 text-center space-y-4">
-        <h2 className="text-2xl font-bold">🚀 Get Started</h2>
-        <p className="text-muted-foreground">
-          Create your first category to start organizing your notes
-        </p>
-        <Button size="lg">Create First Category</Button>
+        <h2 className="text-2xl font-bold">🚀 Quick Actions</h2>
+        <div className="flex gap-4 justify-center">
+          <Link href="/categories">
+            <Button size="lg">Manage Categories</Button>
+          </Link>
+          <Link href="/notes">
+            <Button size="lg" variant="outline">Create Note</Button>
+          </Link>
+        </div>
       </div>
     </div>
   );

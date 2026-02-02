@@ -29,7 +29,7 @@ export default function CategoryList() {
         throw new Error(data.error || 'Failed to fetch categories');
       }
 
-      setCategories(data.categories);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -64,7 +64,7 @@ export default function CategoryList() {
     return <div className="text-red-600">Error: {error}</div>;
   }
 
-  if (categories.length === 0) {
+  if (!categories || categories.length === 0) {
     return (
       <div className="text-gray-500 text-center py-8">
         No categories yet. Create your first one!

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { categorySchema } from '@/lib/validations/category';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 
 export async function PATCH(
   request: NextRequest,
@@ -39,8 +39,8 @@ export async function PATCH(
 
     return NextResponse.json({ category });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 });
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
     }
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
