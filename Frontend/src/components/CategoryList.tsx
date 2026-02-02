@@ -8,7 +8,6 @@ type Category = {
   description?: string;
   color?: string;
   icon?: string;
-  ai_system_context?: string;
 };
 
 export default function CategoryList() {
@@ -96,10 +95,7 @@ export default function CategoryList() {
           {category.description && (
             <p className="text-gray-600 text-sm mb-2">{category.description}</p>
           )}
-          {category.ai_system_context && (
-            <p className="text-xs text-gray-400 italic">AI context configured</p>
-          )}
-        </div>
+          </div>
       ))}
     </div>
   );
