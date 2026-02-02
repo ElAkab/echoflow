@@ -34,6 +34,7 @@ This file contains project-specific instructions for GitHub Copilot CLI to ensur
 
 ### React Components
 
+- Use ESM imports/exports only (no CommonJS)
 - **Default to Server Components** unless interactivity is required
 - Use `'use client'` directive explicitly for Client Components
 - Functional components only (no class components)
