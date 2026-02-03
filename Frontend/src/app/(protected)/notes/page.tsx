@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { QuestionGenerator } from '@/components/notes/QuestionGenerator';
 
 interface Note {
   id: string;
@@ -266,7 +267,9 @@ export default function NotesPage() {
                     </span>
                   </div>
                   <h3 className="text-xl font-semibold mb-2">{note.title}</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+                  <p className="text-gray-700 whitespace-pre-wrap mb-4">{note.content}</p>
+                  
+                  <QuestionGenerator noteId={note.id} />
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button

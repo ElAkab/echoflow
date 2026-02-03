@@ -1,0 +1,11 @@
+=== STRIDE model ===
+STRIDE -> modèle de menace (Threat Modeling)
+Un modèle mental à utiliser AVANT la conception du développement et de l'exploitation d'une application (Front, Back, API)
+Il permet de se poser systématiquement les bonnes questions de sécurité.
+
+S - Spoofing - Usurpation d'identité
+T - Tampering - Altération de données
+R - Repudiation - Incapacité à prouver qu'une action précise a eu lieu ou qu'un utilisateur est responsable.
+I - Information disclosure - Divulgation d'informations confidentielles (accès à des informations confidentielles)
+D - Denial of Service (DoS) - Rendre une application indisponible en surchargeant ses ressources (souvent des APIs)
+E - Elevation of privilege - Faille quelconque pouvant laisser un utilisateur changer ses "limitation" (perms admin, membres premium etc...)
