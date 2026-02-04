@@ -7,12 +7,15 @@ This document tracks the development journey of Brain Loop, documenting each ses
 ## Session 2026-02-04 : Markdown Support for Notes & AI (Story 2.3) ✅
 
 ### Objective
+
 Implement rich text formatting support using Markdown for both user notes and AI conversation responses.
 
 ### Context
+
 Users needed better text formatting options for their study notes (headings, lists, code blocks, bold/italic). AI responses also needed proper formatting to improve readability of explanations and examples.
 
 ### GitHub Copilot CLI Features Used
+
 - ✅ **Package installation**: Added react-markdown ecosystem (remark-gfm, rehype-highlight, highlight.js)
 - ✅ **Component creation**: Built reusable Markdown component with custom styling
 - ✅ **Parallel editing**: Updated QuestionGenerator and NotesContent simultaneously
@@ -22,9 +25,10 @@ Users needed better text formatting options for their study notes (headings, lis
 ### Implementation Details
 
 #### 1. Markdown Component (`/components/ui/markdown.tsx`)
+
 - **Libraries**: react-markdown, remark-gfm (tables, task lists), rehype-highlight (syntax highlighting)
 - **Styling**: Custom Tailwind prose classes, GitHub Dark theme for code blocks
-- **Features**: 
+- **Features**:
   - Headings (H1-H3) with primary color accents
   - Lists (ordered/unordered) with proper indentation
   - Inline code with muted background
@@ -34,22 +38,26 @@ Users needed better text formatting options for their study notes (headings, lis
   - External links open in new tab
 
 #### 2. AI Conversation Integration
+
 - **File**: `QuestionGenerator.tsx`
 - **Change**: AI messages render with `<Markdown>`, user messages stay plain text
 - **Benefit**: AI can now format explanations with lists, bold text, code examples
 
 #### 3. Note Preview Integration
+
 - **File**: `NotesContent.tsx`
 - **Change**: Note content previews render Markdown with `line-clamp-4` truncation
 - **Benefit**: Users see formatted notes in grid view
 
 ### Testing Results
+
 - ✅ Production build passes
 - ✅ AI responses with lists, bold, code blocks render correctly
 - ✅ Note content shows Markdown formatting in previews
 - ✅ No hydration errors or styling conflicts
 
 ### Acceptance Criteria Met
+
 - [x] Users can write notes with Markdown syntax
 - [x] Notes display with proper formatting in list/grid view
 - [x] AI responses support rich formatting
@@ -763,12 +771,12 @@ Epic 2 Stories 2.1 & 2.2 complete (Categories + Notes CRUD working). Now impleme
 
 ```typescript
 const FREE_MODELS = [
-  'google/gemini-2.0-flash-thinking-exp:free',
-  'google/gemini-2.0-flash-exp:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'meta-llama/llama-3.1-8b-instruct:free',
-  'microsoft/phi-3-mini-128k-instruct:free',
-  'qwen/qwen-2.5-7b-instruct:free'
+	"google/gemini-2.0-flash-thinking-exp:free",
+	"google/gemini-2.0-flash-exp:free",
+	"meta-llama/llama-3.3-70b-instruct:free",
+	"meta-llama/llama-3.1-8b-instruct:free",
+	"microsoft/phi-3-mini-128k-instruct:free",
+	"qwen/qwen-2.5-7b-instruct:free",
 ];
 ```
 
@@ -843,7 +851,7 @@ const FREE_MODELS = [
 - **Model Selection**: Free models work but inconsistent (Gemini 2.0 best so far)
 - **Prompt Adaptation**: Open-ended questions work better than structured quizzes
 - **Rate Limiting**: Rotation system essential for free tier viability
-- **UX Improvements Needed**: 
+- **UX Improvements Needed**:
   - Loading skeleton during question generation
   - Better error messages
   - Conversation history UI (premium feature)
@@ -942,6 +950,7 @@ Core features complete (Auth, Categories, Notes, AI Chat). User feedback indicat
 ### Files Modified
 
 **Modified** (15 files):
+
 - `Frontend/src/app/globals.css` (custom theme)
 - `Frontend/src/app/(protected)/dashboard/page.tsx` (split to server/client)
 - `Frontend/src/app/(protected)/notes/page.tsx` (split to server/client)
@@ -956,6 +965,7 @@ Core features complete (Auth, Categories, Notes, AI Chat). User feedback indicat
 **Recommended Path: Deployment & Testing (Epic 3)**
 
 **Option A: Deploy MVP to Production** 🚀
+
 - Configure Vercel deployment
 - Set production environment variables
 - Test OAuth in production
@@ -964,6 +974,7 @@ Core features complete (Auth, Categories, Notes, AI Chat). User feedback indicat
 - **Time**: 1-2 hours
 
 **Option B: Write E2E Tests** ✅
+
 - Auth flow (Google OAuth, logout)
 - Category CRUD
 - Notes CRUD
@@ -972,6 +983,7 @@ Core features complete (Auth, Categories, Notes, AI Chat). User feedback indicat
 - **Time**: 2-3 hours
 
 **Option C: Performance Optimization** ⚡
+
 - Implement lazy loading for modals
 - Add loading skeletons
 - Optimize image assets
@@ -980,6 +992,7 @@ Core features complete (Auth, Categories, Notes, AI Chat). User feedback indicat
 - **Time**: 1-2 hours
 
 **Option D: Quota Management (Epic 4)** 📊
+
 - Implement hint credit tracking
 - Weekly quota reset
 - Premium plan differentiation

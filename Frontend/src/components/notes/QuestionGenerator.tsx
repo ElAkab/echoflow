@@ -175,7 +175,7 @@ export function QuestionGenerator({
 				<Button
 					size="sm"
 					variant="ghost"
-					className="gap-2 h-8 text-xs"
+					className="gap-2 h-8 text-xs bg-white/10 hover:bg-white/20"
 					onClick={startConversation}
 					disabled={loading}
 				>
