@@ -1,6 +1,10 @@
 "use client";
 
-import { signInWithGoogle, signInWithEmail, signInWithDemo } from "@/lib/auth/actions";
+import {
+	signInWithGoogle,
+	signInWithEmail,
+	signInWithDemo,
+} from "@/lib/auth/actions";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -35,15 +39,6 @@ export default function LoginPage() {
 				<div className="text-center mb-8">
 					<h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
 					<p className="text-gray-600">Sign in to continue learning</p>
-					
-					{/* Demo Account Notice */}
-					<div className="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-lg">
-						<p className="text-xs text-gray-300">
-							🧪 <strong>Want to test without signing in?</strong>
-							<br />
-							Use demo account: <code className="text-primary font-mono">demo@brainloop.app</code>
-						</p>
-					</div>
 				</div>
 
 				{message && (
@@ -63,9 +58,34 @@ export default function LoginPage() {
 						<button
 							type="submit"
 							disabled={loading}
+							aria-label="Continue with Google"
 							className="w-full py-3 px-4 border-2 border-gray-700 rounded-lg hover:border-gray-600 transition cursor-pointer flex items-center justify-center gap-3 font-medium disabled:opacity-50"
 						>
-							<span>🔍</span>
+							<span className="inline-flex items-center mr-2">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 533.5 544.3"
+									className="h-5 w-5"
+									aria-hidden="true"
+								>
+									<path
+										fill="#4285F4"
+										d="M533.5 278.4c0-17.6-1.5-35.2-4.6-52.1H272v98.6h146.9c-6.3 34.1-25.1 63-53.7 82.4v68.4h86.8c50.8-46.8 81.5-115.9 81.5-197.3z"
+									/>
+									<path
+										fill="#34A853"
+										d="M272 544.3c72.6 0 133.6-24.1 178.1-65.4l-86.8-68.4c-24.3 16.3-55.1 25.9-91.3 25.9-70 0-129.4-47.2-150.6-110.6H33.8v69.5C77.7 475 167.6 544.3 272 544.3z"
+									/>
+									<path
+										fill="#FBBC05"
+										d="M121.4 330.8c-7.6-22.8-7.6-47.4 0-70.2V191.1H33.8c-42.8 85.7-42.8 187.1 0 272.8l87.6-69.5z"
+									/>
+									<path
+										fill="#EA4335"
+										d="M272 109.6c39.6 0 75.2 13.6 103.2 40.4l77.4-77.4C405.9 24.2 347.2 0 272 0 167.6 0 77.7 69.3 33.8 172.3l87.6 69.5C142.6 157.0 202 109.6 272 109.6z"
+									/>
+								</svg>
+							</span>
 							<span>Continue with Google</span>
 						</button>
 					</form>

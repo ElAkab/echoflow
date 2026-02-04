@@ -68,7 +68,7 @@ export function DashboardContent({
 
 				<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
 					<DialogTrigger asChild>
-						<Button size="lg" className="gap-2">
+						<Button size="lg" className="gap-2 cursor-pointer">
 							<Plus className="h-5 w-5" />
 							New Category
 						</Button>
@@ -116,7 +116,7 @@ export function DashboardContent({
 					<Button
 						onClick={() => setIsDialogOpen(true)}
 						size="lg"
-						className="gap-2"
+						className="gap-2 cursor-pointer"
 					>
 						<Plus className="h-5 w-5" />
 						Create Category
@@ -165,7 +165,7 @@ export function DashboardContent({
 												<Button
 													size="icon"
 													variant="ghost"
-													className="h-8 w-8"
+													className="h-8 w-8 cursor-pointer"
 													onClick={(e) => {
 														e.preventDefault();
 
@@ -178,7 +178,7 @@ export function DashboardContent({
 												<Button
 													size="icon"
 													variant="ghost"
-													className="h-8 w-8 text-destructive hover:text-destructive"
+													className="h-8 w-8 text-destructive cursor-pointer	 hover:text-destructive"
 													onClick={(e) => {
 														e.preventDefault();
 														handleDelete(category.id);
