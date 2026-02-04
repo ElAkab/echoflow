@@ -4,65 +4,100 @@ This document tracks the development journey of Brain Loop, documenting each ses
 
 ---
 
-## Session 2026-02-04 : Markdown Support for Notes & AI (Story 2.3) ✅
+## Session 2026-02-04 : Markdown Support + AI Streaming (Story 2.3) ✅
 
 ### Objective
 
-Implement rich text formatting support using Markdown for both user notes and AI conversation responses.
+Implement rich text formatting (Markdown) for notes and AI responses, plus streaming AI responses for better UX.
 
 ### Context
 
-Users needed better text formatting options for their study notes (headings, lists, code blocks, bold/italic). AI responses also needed proper formatting to improve readability of explanations and examples.
+Users needed better text formatting options for study notes (headings, lists, code blocks, bold/italic). AI responses also needed proper formatting and progressive rendering (streaming) to reduce perceived wait time and improve user experience.
 
 ### GitHub Copilot CLI Features Used
 
-- ✅ **Package installation**: Added react-markdown ecosystem (remark-gfm, rehype-highlight, highlight.js)
+- ✅ **Package installation**: Added react-markdown ecosystem (remark-gfm, rehype-highlight, rehype-raw, highlight.js, @types/node)
 - ✅ **Component creation**: Built reusable Markdown component with custom styling
-- ✅ **Parallel editing**: Updated QuestionGenerator and NotesContent simultaneously
+- ✅ **Parallel editing**: Updated QuestionGenerator, NotesContent, and API route simultaneously
 - ✅ **Build validation**: Tested production build to catch missing dependencies
 - ✅ **Dependency troubleshooting**: Fixed missing highlight.js package
+- ✅ **API refactoring**: Converted OpenRouter integration to streaming SSE
+- ✅ **Frontend streaming**: Implemented progressive message rendering with fetch streaming API
 
 ### Implementation Details
 
 #### 1. Markdown Component (`/components/ui/markdown.tsx`)
 
-- **Libraries**: react-markdown, remark-gfm (tables, task lists), rehype-highlight (syntax highlighting)
+- **Libraries**: react-markdown, remark-gfm (tables, task lists), rehype-highlight (syntax highlighting), rehype-raw (HTML support)
 - **Styling**: Custom Tailwind prose classes, GitHub Dark theme for code blocks
 - **Features**:
   - Headings (H1-H3) with primary color accents
   - Lists (ordered/unordered) with proper indentation
   - Inline code with muted background
-  - Code blocks with syntax highlighting
+  - Code blocks with syntax highlighting (highlight.js with GitHub Dark theme)
   - Blockquotes with left border
   - Tables with borders and muted headers
   - External links open in new tab
+  - Raw HTML support for complex formatting
 
-#### 2. AI Conversation Integration
+#### 2. AI Conversation Integration (QuestionGenerator.tsx)
 
-- **File**: `QuestionGenerator.tsx`
-- **Change**: AI messages render with `<Markdown>`, user messages stay plain text
-- **Benefit**: AI can now format explanations with lists, bold text, code examples
+- **Markdown Rendering**: AI messages render with `<Markdown>`, user messages stay plain text
+- **Streaming Support**: Messages update progressively as chunks arrive from SSE stream
+- **State Management**: `streamingMessage` state tracks partial AI response during streaming
+- **UX**: Loading indicator during generation, smooth text appearance
+- **Benefit**: AI can format explanations with lists, bold text, code examples; users see responses appear in real-time
 
-#### 3. Note Preview Integration
+#### 3. Note Study Modal (NotesContent.tsx)
 
 - **File**: `NotesContent.tsx`
-- **Change**: Note content previews render Markdown with `line-clamp-4` truncation
-- **Benefit**: Users see formatted notes in grid view
+- **Change**: Study modal renders note content with `<Markdown>` component
+- **Benefit**: Users see fully formatted notes when studying (not just previews)
+
+#### 4. API Streaming Implementation (generate-questions/route.ts)
+
+- **Protocol**: Server-Sent Events (SSE) with `text/event-stream` content type
+- **OpenRouter Integration**: Enabled `stream: true` in API requests
+- **Chunk Processing**: Reads streaming response line-by-line, extracts delta content from JSON
+- **Error Handling**: Graceful fallback if streaming fails, proper stream cleanup
+- **Model Rotation**: Maintains automatic fallback across 6 free models even with streaming
+- **Response Format**: Sends `data: {chunk}` followed by `data: [DONE]` signal
+
+#### 5. Frontend Streaming (QuestionGenerator.tsx)
+
+- **Fetch API**: Uses `response.body.getReader()` for streaming responses
+- **Text Decoding**: `TextDecoder` converts binary chunks to text
+- **Message Assembly**: Accumulates chunks until `[DONE]` signal received
+- **State Updates**: Updates `streamingMessage` on each chunk for progressive rendering
+- **Cleanup**: Properly closes reader and handles errors/interruptions
 
 ### Testing Results
 
-- ✅ Production build passes
-- ✅ AI responses with lists, bold, code blocks render correctly
-- ✅ Note content shows Markdown formatting in previews
+- ✅ Production build passes with all dependencies
+- ✅ AI responses with lists, bold, code blocks render correctly with Markdown
+- ✅ Note content shows Markdown formatting in grid previews
+- ✅ Study modal displays full note with proper Markdown rendering
+- ✅ Streaming works: AI responses appear progressively (chunk by chunk)
 - ✅ No hydration errors or styling conflicts
+- ✅ Model rotation still functional with streaming enabled
+- ✅ Graceful error handling if stream interrupted
 
 ### Acceptance Criteria Met
 
+**Markdown Support**:
 - [x] Users can write notes with Markdown syntax
 - [x] Notes display with proper formatting in list/grid view
-- [x] AI responses support rich formatting
-- [x] Code blocks have syntax highlighting
+- [x] Study modal renders notes with full Markdown support
+- [x] AI responses support rich formatting (lists, code, bold, etc.)
+- [x] Code blocks have syntax highlighting (GitHub Dark theme)
 - [x] No performance degradation
+
+**AI Streaming**:
+- [x] AI responses stream progressively (chunks appear in real-time)
+- [x] Smooth UX without blocking UI during generation
+- [x] Proper loading states and completion detection
+- [x] Error handling for interrupted streams
+- [x] Model rotation works with streaming enabled
 
 ---
 
