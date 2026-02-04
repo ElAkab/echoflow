@@ -362,10 +362,8 @@ export function NotesContent({ notes: initialNotes, categories, initialCategory 
                   <span>{new Date(viewNote.updated_at).toLocaleDateString()}</span>
                 </div>
               </DialogHeader>
-              <div className="pt-4">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {viewNote.content || 'No content'}
-                </p>
+              <div className="pt-4 prose prose-sm dark:prose-invert max-w-none">
+                <Markdown content={viewNote.content || 'No content'} />
               </div>
               <div className="pt-6 border-t">
                 <QuestionGenerator noteId={viewNote.id} />

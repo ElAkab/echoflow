@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
 		// Build conversation messages
 		const categoryName = note.categories?.name || "General";
-		const systemPrompt = `You are a helpful AI tutor helping students review their study notes through interactive conversation.
+		const systemPrompt = `You are a helpful AI tutor helping students review their study notes through interactive conversation. You can use Markdown formatting in your responses.
 
   Your role:
   - Ask thoughtful, open-ended questions about the note content
@@ -130,6 +130,7 @@ export async function POST(request: Request) {
 							messages: conversationMessages,
 							temperature: 0.7,
 							max_tokens: 500,
+							stream: true,
 						}),
 					},
 				);
@@ -141,16 +142,39 @@ export async function POST(request: Request) {
 					continue; // Try next model
 				}
 
-				const data = await response.json();
-				const aiResponse = data.choices?.[0]?.message?.content;
+				// Return the stream directly
+				const encoder = new TextEncoder();
+				const stream = new ReadableStream({
+					async start(controller) {
+						const reader = response.body?.getReader();
+						if (!reader) {
+							controller.close();
+							return;
+						}
 
-				if (!aiResponse) {
-					console.warn(`Model ${model} returned empty response`);
-					continue; // Try next model
-				}
+						try {
+							while (true) {
+								const { done, value } = await reader.read();
+								if (done) break;
 
-				// Success! Return the response
-				return NextResponse.json({ message: aiResponse, model });
+								// Forward the SSE data
+								controller.enqueue(value);
+							}
+						} catch (error) {
+							console.error("Stream error:", error);
+						} finally {
+							controller.close();
+						}
+					},
+				});
+
+				return new Response(stream, {
+					headers: {
+						"Content-Type": "text/event-stream",
+						"Cache-Control": "no-cache",
+						Connection: "keep-alive",
+					},
+				});
 			} catch (error) {
 				console.warn(`Model ${model} threw error:`, error);
 				lastError = error;

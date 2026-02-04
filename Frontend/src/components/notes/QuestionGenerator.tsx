@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import {
@@ -30,11 +30,84 @@ export function QuestionGenerator({
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [streamingContent, setStreamingContent] = useState("");
+	const messagesEndRef = useRef<HTMLDivElement>(null);
+
+	const scrollToBottom = () => {
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	};
+
+	useEffect(() => {
+		scrollToBottom();
+	}, [messages, streamingContent]);
+
+	const processStream = async (
+		response: Response,
+		updatedMessages?: Message[],
+	) => {
+		const reader = response.body?.getReader();
+		const decoder = new TextDecoder();
+
+		if (!reader) {
+			throw new Error("No reader available");
+		}
+
+		let accumulatedContent = "";
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				const chunk = decoder.decode(value);
+				const lines = chunk.split("\n");
+
+				for (const line of lines) {
+					if (line.startsWith("data: ")) {
+						const data = line.slice(6);
+
+						if (data === "[DONE]") {
+							// Stream finished
+							const assistantMessage: Message = {
+								role: "assistant",
+								content: accumulatedContent,
+							};
+							setMessages((prev) => [
+								...(updatedMessages || prev),
+								assistantMessage,
+							]);
+							setStreamingContent("");
+							return;
+						}
+
+						try {
+							const parsed = JSON.parse(data);
+							const content = parsed.choices?.[0]?.delta?.content;
+
+							if (content) {
+								accumulatedContent += content;
+								setStreamingContent(accumulatedContent);
+							}
+						} catch (e) {
+							// Ignore parse errors for incomplete chunks
+							continue;
+						}
+					}
+				}
+			}
+		} catch (error) {
+			console.error("Stream processing error:", error);
+			throw error;
+		} finally {
+			reader.releaseLock();
+		}
+	};
 
 	const startConversation = async () => {
 		setIsOpen(true);
 		setMessages([]);
 		setLoading(true);
+		setStreamingContent("");
 
 		try {
 			const res = await fetch("/api/ai/generate-questions", {
@@ -49,8 +122,7 @@ export function QuestionGenerator({
 				return;
 			}
 
-			const data = await res.json();
-			setMessages([{ role: "assistant", content: data.message }]);
+			await processStream(res);
 		} catch (error) {
 			console.error("Failed to start conversation:", error);
 			alert("Failed to start conversation");
@@ -67,6 +139,7 @@ export function QuestionGenerator({
 		setMessages(updatedMessages);
 		setInput("");
 		setLoading(true);
+		setStreamingContent("");
 
 		try {
 			const res = await fetch("/api/ai/generate-questions", {
@@ -87,11 +160,7 @@ export function QuestionGenerator({
 				return;
 			}
 
-			const data = await res.json();
-			setMessages([
-				...updatedMessages,
-				{ role: "assistant", content: data.message },
-			]);
+			await processStream(res, updatedMessages);
 		} catch (error) {
 			console.error("Failed to send message:", error);
 			alert("Failed to send message");
@@ -152,13 +221,21 @@ export function QuestionGenerator({
 								</div>
 							</div>
 						))}
-						{loading && (
+						{streamingContent && (
+							<div className="flex justify-start">
+								<div className="bg-muted text-foreground px-4 py-3 rounded-lg max-w-[85%]">
+									<Markdown content={streamingContent} />
+								</div>
+							</div>
+						)}
+						{loading && !streamingContent && (
 							<div className="flex justify-start">
 								<div className="bg-muted text-foreground px-4 py-3 rounded-lg">
 									<p className="text-sm">Thinking...</p>
 								</div>
 							</div>
 						)}
+						<div ref={messagesEndRef} />
 					</div>
 
 					{/* Input */}
