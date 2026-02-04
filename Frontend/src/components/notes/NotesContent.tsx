@@ -21,6 +21,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { QuestionGenerator } from './QuestionGenerator';
+import { Markdown } from '@/components/ui/markdown';
 
 interface Note {
   id: string;
@@ -303,9 +304,9 @@ export function NotesContent({ notes: initialNotes, categories, initialCategory 
                   <h3 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
                     {note.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-4">
-                    {note.content || 'No content'}
-                  </p>
+                  <div className="text-sm text-muted-foreground line-clamp-4 overflow-hidden">
+                    <Markdown content={note.content || 'No content'} />
+                  </div>
                 </div>
 
                 {/* Footer with actions */}

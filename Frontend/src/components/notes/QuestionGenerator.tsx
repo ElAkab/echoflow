@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Markdown } from "@/components/ui/markdown";
 
 interface Message {
 	role: "user" | "assistant";
@@ -143,7 +144,11 @@ export function QuestionGenerator({
 											: "bg-muted text-foreground"
 									}`}
 								>
-									<p className="text-sm">{msg.content}</p>
+									{msg.role === "assistant" ? (
+										<Markdown content={msg.content} />
+									) : (
+										<p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+									)}
 								</div>
 							</div>
 						))}

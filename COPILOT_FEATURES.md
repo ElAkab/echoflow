@@ -23,7 +23,36 @@ This document catalogs all GitHub Copilot CLI features utilized during the devel
 
 ---
 
-## 🎨 Latest Session Highlights (2026-02-03)
+# GitHub Copilot CLI - Features Showcase
+
+This document catalogs all GitHub Copilot CLI features utilized during the development of Brain Loop, demonstrating the tool's capabilities for the community challenge.
+
+---
+
+## 🎨 Latest Session Highlights (2026-02-04)
+
+### Markdown Support Implementation (Story 2.3)
+
+**New Features Demonstrated**:
+1. **Dependency Chain Installation** - Installed 5 packages (react-markdown, remark-gfm, rehype-highlight, rehype-raw, highlight.js) sequentially
+2. **Build-Driven Debugging** - Caught missing `highlight.js` dependency through production build test
+3. **Component Reusability** - Created single `Markdown` component used in 2 locations (QuestionGenerator, NotesContent)
+4. **Parallel Component Updates** - Modified QuestionGenerator.tsx and NotesContent.tsx simultaneously
+5. **Documentation Updates** - Updated DEVELOPMENT_LOG.md with session details
+
+**Code Changes**:
+- 1 new component created (`/components/ui/markdown.tsx` - 60 lines)
+- 2 components updated (QuestionGenerator, NotesContent)
+- 5 npm packages added
+- Production build validated successfully
+
+**Impact**: Users can now write formatted notes and receive rich AI responses with syntax highlighting, lists, and formatted text.
+
+**Time Saved**: ~2-3 hours (manual Markdown integration + styling + testing across components)
+
+---
+
+## 🎨 Session Highlights (2026-02-03)
 
 ### Dark Mode Design System Implementation
 

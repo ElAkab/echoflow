@@ -4,6 +4,60 @@ This document tracks the development journey of Brain Loop, documenting each ses
 
 ---
 
+## Session 2026-02-04 : Markdown Support for Notes & AI (Story 2.3) ✅
+
+### Objective
+Implement rich text formatting support using Markdown for both user notes and AI conversation responses.
+
+### Context
+Users needed better text formatting options for their study notes (headings, lists, code blocks, bold/italic). AI responses also needed proper formatting to improve readability of explanations and examples.
+
+### GitHub Copilot CLI Features Used
+- ✅ **Package installation**: Added react-markdown ecosystem (remark-gfm, rehype-highlight, highlight.js)
+- ✅ **Component creation**: Built reusable Markdown component with custom styling
+- ✅ **Parallel editing**: Updated QuestionGenerator and NotesContent simultaneously
+- ✅ **Build validation**: Tested production build to catch missing dependencies
+- ✅ **Dependency troubleshooting**: Fixed missing highlight.js package
+
+### Implementation Details
+
+#### 1. Markdown Component (`/components/ui/markdown.tsx`)
+- **Libraries**: react-markdown, remark-gfm (tables, task lists), rehype-highlight (syntax highlighting)
+- **Styling**: Custom Tailwind prose classes, GitHub Dark theme for code blocks
+- **Features**: 
+  - Headings (H1-H3) with primary color accents
+  - Lists (ordered/unordered) with proper indentation
+  - Inline code with muted background
+  - Code blocks with syntax highlighting
+  - Blockquotes with left border
+  - Tables with borders and muted headers
+  - External links open in new tab
+
+#### 2. AI Conversation Integration
+- **File**: `QuestionGenerator.tsx`
+- **Change**: AI messages render with `<Markdown>`, user messages stay plain text
+- **Benefit**: AI can now format explanations with lists, bold text, code examples
+
+#### 3. Note Preview Integration
+- **File**: `NotesContent.tsx`
+- **Change**: Note content previews render Markdown with `line-clamp-4` truncation
+- **Benefit**: Users see formatted notes in grid view
+
+### Testing Results
+- ✅ Production build passes
+- ✅ AI responses with lists, bold, code blocks render correctly
+- ✅ Note content shows Markdown formatting in previews
+- ✅ No hydration errors or styling conflicts
+
+### Acceptance Criteria Met
+- [x] Users can write notes with Markdown syntax
+- [x] Notes display with proper formatting in list/grid view
+- [x] AI responses support rich formatting
+- [x] Code blocks have syntax highlighting
+- [x] No performance degradation
+
+---
+
 ## Session 2026-02-03 : Dark Mode Design System Implementation
 
 ### Objective
