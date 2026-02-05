@@ -91,13 +91,10 @@ export function QuestionGenerator({
 						? Math.floor((Date.now() - sessionStartTime) / 1000) 
 						: 0;
 
-					// Extract AI feedback from last assistant message (if any)
-					const lastAssistantMessage = [...messages]
-						.reverse()
-						.find((m) => m.role === "assistant");
-					
-					const aiFeedback = lastAssistantMessage 
-						? `Session completed with ${messages.filter((m) => m.role === "assistant").length} questions asked.`
+					// Get structured AI feedback
+					const lastFeedback = (window as any).__lastAIFeedback || {};
+					const aiFeedback = messages.length > 0
+						? JSON.stringify(lastFeedback)
 						: null;
 
 					await fetch("/api/study-sessions", {
@@ -155,9 +152,27 @@ export function QuestionGenerator({
 						const data = line.slice(6);
 
 						if (data === "[DONE]") {
+							// Try to parse JSON response
+							let finalContent = accumulatedContent;
+							try {
+								const jsonMatch = accumulatedContent.match(/\{[\s\S]*\}/);
+								if (jsonMatch) {
+									const parsed = JSON.parse(jsonMatch[0]);
+									finalContent = parsed.chat_response || accumulatedContent;
+									// Store feedback for session saving
+									(window as any).__lastAIFeedback = {
+										analysis: parsed.analysis || "",
+										weaknesses: parsed.weaknesses || "",
+										conclusion: parsed.conclusion || ""
+									};
+								}
+							} catch (e) {
+								// Fallback to raw content if JSON parsing fails
+							}
+
 							const assistantMessage: Message = {
 								role: "assistant",
-								content: accumulatedContent,
+								content: finalContent,
 							};
 							setMessages((prev) => [
 								...(updatedMessages || prev),

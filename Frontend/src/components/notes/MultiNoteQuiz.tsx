@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Message {
 	role: "user" | "assistant";
@@ -17,6 +17,14 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [hasStarted, setHasStarted] = useState(false);
+	const [startTime] = useState(Date.now());
+
+	// Auto-start quiz when component mounts
+	useEffect(() => {
+		if (!hasStarted) {
+			startQuiz();
+		}
+	}, []);
 
 	const startQuiz = async () => {
 		setHasStarted(true);
@@ -41,6 +49,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 			const reader = res.body?.getReader();
 			const decoder = new TextDecoder();
 			let aiResponse = "";
+			let fullResponse = "";
 
 			if (reader) {
 				while (true) {
@@ -59,7 +68,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 								const parsed = JSON.parse(data);
 								const content = parsed.choices?.[0]?.delta?.content;
 								if (content) {
-									aiResponse += content;
+									fullResponse += content;
 								}
 							} catch (e) {
 								// Ignore parse errors for incomplete chunks
@@ -67,6 +76,26 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 						}
 					}
 				}
+			}
+
+			// Try to parse JSON response
+			try {
+				const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+				if (jsonMatch) {
+					const parsed = JSON.parse(jsonMatch[0]);
+					aiResponse = parsed.chat_response || fullResponse;
+					// Store analysis/weaknesses/conclusion for session saving
+					(window as any).__lastAIFeedback = {
+						analysis: parsed.analysis || "",
+						weaknesses: parsed.weaknesses || "",
+						conclusion: parsed.conclusion || ""
+					};
+				} else {
+					aiResponse = fullResponse;
+				}
+			} catch (e) {
+				// Fallback if JSON parsing fails
+				aiResponse = fullResponse;
 			}
 
 			setMessages([{ role: "assistant", content: aiResponse }]);
@@ -112,6 +141,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 			const reader = res.body?.getReader();
 			const decoder = new TextDecoder();
 			let aiResponse = "";
+			let fullResponse = "";
 
 			if (reader) {
 				while (true) {
@@ -130,7 +160,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 								const parsed = JSON.parse(data);
 								const content = parsed.choices?.[0]?.delta?.content;
 								if (content) {
-									aiResponse += content;
+									fullResponse += content;
 								}
 							} catch (e) {
 								// Ignore parse errors
@@ -138,6 +168,25 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 						}
 					}
 				}
+			}
+
+			// Try to parse JSON response
+			try {
+				const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+				if (jsonMatch) {
+					const parsed = JSON.parse(jsonMatch[0]);
+					aiResponse = parsed.chat_response || fullResponse;
+					// Update feedback
+					(window as any).__lastAIFeedback = {
+						analysis: parsed.analysis || "",
+						weaknesses: parsed.weaknesses || "",
+						conclusion: parsed.conclusion || ""
+					};
+				} else {
+					aiResponse = fullResponse;
+				}
+			} catch (e) {
+				aiResponse = fullResponse;
 			}
 
 			setMessages([
@@ -190,7 +239,38 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 						AI Study Session ({noteIds.length} notes)
 					</h2>
 					<button
-						onClick={onClose}
+						onClick={async () => {
+							// Save study session before closing
+							const durationSeconds = Math.floor((Date.now() - startTime) / 1000);
+							const questionsAsked = Math.floor(messages.filter(m => m.role === 'assistant').length);
+							const lastFeedback = (window as any).__lastAIFeedback || {};
+							
+							try {
+								// Fetch category_id from first note
+								const firstNoteRes = await fetch(`/api/notes/${noteIds[0]}`);
+								const firstNote = await firstNoteRes.json();
+								const categoryId = firstNote?.category_id || null;
+								
+								await fetch("/api/study-sessions", {
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({
+										noteIds,
+										categoryId,
+										sessionType: "MULTI_NOTE",
+										modelUsed: "rotation-free-models",
+										conversationHistory: messages,
+										aiFeedback: JSON.stringify(lastFeedback),
+										questionsAsked,
+										durationSeconds,
+									}),
+								});
+							} catch (error) {
+								console.error("Failed to save study session:", error);
+							}
+							
+							onClose();
+						}}
 						className="px-3 py-1 text-gray-600 hover:text-gray-800 cursor-pointer"
 					>
 						✕ Close
