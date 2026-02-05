@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
 			conversationHistory,
 			aiFeedback,
 			questionsAsked,
+			durationSeconds,
 		} = await request.json();
 
 		// Validate required fields
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
 				conversation_history: conversationHistory || [],
 				ai_feedback: aiFeedback || null,
 				questions_asked: questionsAsked || 0,
+				duration_seconds: durationSeconds || 0,
 			})
 			.select()
 			.single();

@@ -31,13 +31,45 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 			});
 
 			if (!res.ok) {
-				const error = await res.json();
-				alert(`Error: ${error.error}`);
+				const errorText = await res.text();
+				console.error("Quiz start error:", errorText);
+				alert(`Error: Failed to start quiz`);
 				return;
 			}
 
-			const data = await res.json();
-			setMessages([{ role: "assistant", content: data.message }]);
+			// Handle streaming response
+			const reader = res.body?.getReader();
+			const decoder = new TextDecoder();
+			let aiResponse = "";
+
+			if (reader) {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					const chunk = decoder.decode(value, { stream: true });
+					const lines = chunk.split("\n").filter((line) => line.trim() !== "");
+
+					for (const line of lines) {
+						if (line.startsWith("data: ")) {
+							const data = line.slice(6);
+							if (data === "[DONE]") continue;
+
+							try {
+								const parsed = JSON.parse(data);
+								const content = parsed.choices?.[0]?.delta?.content;
+								if (content) {
+									aiResponse += content;
+								}
+							} catch (e) {
+								// Ignore parse errors for incomplete chunks
+							}
+						}
+					}
+				}
+			}
+
+			setMessages([{ role: "assistant", content: aiResponse }]);
 		} catch (error) {
 			console.error("Failed to start quiz:", error);
 			alert("Failed to start quiz");
@@ -70,15 +102,47 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 			});
 
 			if (!res.ok) {
-				const error = await res.json();
-				alert(`Error: ${error.error}`);
+				const errorText = await res.text();
+				console.error("Send message error:", errorText);
+				alert("Error: Failed to send message");
 				return;
 			}
 
-			const data = await res.json();
+			// Handle streaming response
+			const reader = res.body?.getReader();
+			const decoder = new TextDecoder();
+			let aiResponse = "";
+
+			if (reader) {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					const chunk = decoder.decode(value, { stream: true });
+					const lines = chunk.split("\n").filter((line) => line.trim() !== "");
+
+					for (const line of lines) {
+						if (line.startsWith("data: ")) {
+							const data = line.slice(6);
+							if (data === "[DONE]") continue;
+
+							try {
+								const parsed = JSON.parse(data);
+								const content = parsed.choices?.[0]?.delta?.content;
+								if (content) {
+									aiResponse += content;
+								}
+							} catch (e) {
+								// Ignore parse errors
+							}
+						}
+					}
+				}
+			}
+
 			setMessages([
 				...updatedMessages,
-				{ role: "assistant", content: data.message },
+				{ role: "assistant", content: aiResponse },
 			]);
 		} catch (error) {
 			console.error("Failed to send message:", error);

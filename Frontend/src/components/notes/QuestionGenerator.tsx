@@ -48,6 +48,7 @@ export function QuestionGenerator({
 	const [streamingContent, setStreamingContent] = useState("");
 	const [currentModel, setCurrentModel] = useState<string>("unknown");
 	const [categoryId, setCategoryId] = useState<string | undefined>();
+	const [sessionStartTime, setSessionStartTime] = useState<number>(0);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
 	const scrollToBottom = () => {
@@ -67,6 +68,8 @@ export function QuestionGenerator({
 	useEffect(() => {
 		if (open !== undefined && open) {
 			if (!loading && messages.length === 0) {
+				// Record session start time
+				setSessionStartTime(Date.now());
 				// startConversation will set loading and begin the fetch
 				startConversation().catch((e) => console.error(e));
 			}
@@ -83,6 +86,20 @@ export function QuestionGenerator({
 					const noteIdsToSave = noteIds || (noteId ? [noteId] : []);
 					if (noteIdsToSave.length === 0) return;
 
+					// Calculate duration
+					const durationSeconds = sessionStartTime > 0 
+						? Math.floor((Date.now() - sessionStartTime) / 1000) 
+						: 0;
+
+					// Extract AI feedback from last assistant message (if any)
+					const lastAssistantMessage = [...messages]
+						.reverse()
+						.find((m) => m.role === "assistant");
+					
+					const aiFeedback = lastAssistantMessage 
+						? `Session completed with ${messages.filter((m) => m.role === "assistant").length} questions asked.`
+						: null;
+
 					await fetch("/api/study-sessions", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -92,7 +109,9 @@ export function QuestionGenerator({
 							sessionType: noteIds && noteIds.length > 1 ? "MULTI_NOTE" : "SINGLE_NOTE",
 							modelUsed: currentModel,
 							conversationHistory: messages,
+							aiFeedback,
 							questionsAsked: messages.filter((m) => m.role === "assistant").length,
+							durationSeconds,
 						}),
 					});
 				} catch (error) {
@@ -102,7 +121,7 @@ export function QuestionGenerator({
 		};
 
 		handleSaveSession();
-	}, [isOpen, messages, noteId, noteIds, categoryId, currentModel]);
+	}, [isOpen, messages, noteId, noteIds, categoryId, currentModel, sessionStartTime]);
 
 	const setOpen = (val: boolean) => {
 		if (onOpenChange) onOpenChange(val);
