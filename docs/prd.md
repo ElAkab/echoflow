@@ -242,7 +242,7 @@ Implémenter l'interaction principale d'apprentissage, connectant les notes de l
   - _AC2:_ Retrieval of the Category's specific "System Prompt".
   - _AC3:_ Construction of the final payload to be sent to OpenRouter API.
 
-- **Story 3.2: Chat Interface Implementation**
+- **Story 3.2: Chat Interface Implementation** (already implemented but needs refinement)
   - **As a** User,
   - **I want** a chat-like interface to interact with the quiz,
   - **so that** the experience feels conversational.
@@ -250,7 +250,7 @@ Implémenter l'interaction principale d'apprentissage, connectant les notes de l
   - _AC2:_ "Send" button and text input area (auto-expanding).
   - _AC3:_ Loading states (typing indicators) while waiting for AI.
 
-- **Story 3.3: Hint System & Active Recall Protection**
+- **Story 3.3: Hint System & Active Recall Protection** (We can skip this for MVP, but it's a key differentiator for the product)
   - **As a** User,
   - **I want** to request a hint if I'm stuck, but without seeing the full note,
   - **so that** I am forced to make an effort to remember (Active Recall).

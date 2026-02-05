@@ -17,6 +17,15 @@ interface Message {
 	content: string;
 }
 
+interface StudySession {
+	noteIds: string[];
+	categoryId?: string;
+	sessionType: "SINGLE_NOTE" | "MULTI_NOTE";
+	modelUsed: string;
+	conversationHistory: Message[];
+	questionsAsked: number;
+}
+
 interface QuestionGeneratorProps {
 	noteId?: string;
 	noteIds?: string[];
@@ -37,6 +46,8 @@ export function QuestionGenerator({
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [streamingContent, setStreamingContent] = useState("");
+	const [currentModel, setCurrentModel] = useState<string>("unknown");
+	const [categoryId, setCategoryId] = useState<string | undefined>();
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
 	const scrollToBottom = () => {
@@ -62,6 +73,36 @@ export function QuestionGenerator({
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open]);
+
+	// Save study session when dialog closes (if there was a conversation)
+	useEffect(() => {
+		const handleSaveSession = async () => {
+			// Only save if closing and there are messages
+			if (!isOpen && messages.length > 0) {
+				try {
+					const noteIdsToSave = noteIds || (noteId ? [noteId] : []);
+					if (noteIdsToSave.length === 0) return;
+
+					await fetch("/api/study-sessions", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							noteIds: noteIdsToSave,
+							categoryId,
+							sessionType: noteIds && noteIds.length > 1 ? "MULTI_NOTE" : "SINGLE_NOTE",
+							modelUsed: currentModel,
+							conversationHistory: messages,
+							questionsAsked: messages.filter((m) => m.role === "assistant").length,
+						}),
+					});
+				} catch (error) {
+					console.error("Failed to save study session:", error);
+				}
+			}
+		};
+
+		handleSaveSession();
+	}, [isOpen, messages, noteId, noteIds, categoryId, currentModel]);
 
 	const setOpen = (val: boolean) => {
 		if (onOpenChange) onOpenChange(val);

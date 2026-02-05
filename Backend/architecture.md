@@ -154,6 +154,32 @@ graph TD
 - `energy_cost` (Int): Coût déduit en crédits.
 - `created_at` (Timestamp): Date de l'action.
 
+### StudySession (Story 3.1 - Progress Tracking)
+**Purpose:** Track user study sessions with AI-generated feedback for personalized learning insights.
+**Key Attributes:**
+- `id` (UUID): Primary Key.
+- `user_id` (UUID): Foreign Key vers Profile.
+- `note_ids` (Array<UUID>): Notes utilisées pendant la session.
+- `category_id` (UUID): Foreign Key vers Category (optionnel).
+- `session_type` (Enum): 'SINGLE_NOTE' ou 'MULTI_NOTE'.
+- `model_used` (String): Modèle AI utilisé pour la session.
+- `conversation_history` (JSONB): Historique complet de la conversation.
+- `ai_feedback` (JSONB): Feedback structuré généré par l'IA.
+  ```json
+  {
+    "overall_understanding": "good" | "needs_work" | "excellent",
+    "strengths": ["topic1", "topic2"],
+    "weaknesses": ["topic3", "topic4"],
+    "suggestions": "l'utilisateur a encore un peu de mal à comprendre 'x sujet' en 'x catégorie'. Il faut encore travailler dessus",
+    "topics_mastered": ["topic1"],
+    "topics_struggling": ["topic2"]
+  }
+  ```
+- `questions_asked` (Int): Nombre de questions posées par l'IA.
+- `duration_seconds` (Int): Durée de la session (optionnel, pour analytics futures).
+- `created_at` (Timestamp): Date de la session.
+- `updated_at` (Timestamp): Dernière modification.
+
 ### QuizHistory (Optional MVP+)
 **Purpose:** Garder une trace des sessions pour l'utilisateur.
 **Key Attributes:**

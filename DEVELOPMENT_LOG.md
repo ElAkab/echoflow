@@ -4,6 +4,101 @@ This document tracks the development journey of Brain Loop, documenting each ses
 
 ---
 
+## Session 2026-02-05: Progress Tracking System (Story 3.1) 🚧
+
+### Objective
+
+Implement study session tracking with AI-generated feedback to enable personalized learning insights and progress monitoring.
+
+### Context
+
+With core features (notes, categories, AI quizzing) complete, Story 3.1 adds the ability to track user study sessions. This enables:
+- Persistent conversation history
+- AI-generated feedback on learning progress
+- Future analytics and personalized recommendations
+- Understanding which topics users struggle with
+
+### GitHub Copilot CLI Features Used
+
+- ✅ **Schema design**: Created `study_sessions` table with JSONB for flexible feedback storage
+- ✅ **Migration authoring**: Wrote SQL migrations following project conventions
+- ✅ **RLS policies**: Implemented Row Level Security for data isolation
+- ✅ **API route creation**: Built POST/GET endpoints for session management
+- ✅ **Component enhancement**: Added automatic session saving on quiz completion
+- ✅ **Documentation updates**: Updated architecture.md with new data model
+
+### Implementation Details
+
+#### 1. Database Schema (`Backend/migrations/20260205000000_study_sessions.sql`)
+
+Created `study_sessions` table with:
+- `note_ids UUID[]`: Array of notes studied in the session
+- `session_type`: SINGLE_NOTE or MULTI_NOTE
+- `conversation_history JSONB`: Complete chat log
+- `ai_feedback JSONB`: Structured feedback:
+  ```json
+  {
+    "overall_understanding": "good" | "needs_work" | "excellent",
+    "strengths": ["topic1", "topic2"],
+    "weaknesses": ["topic3", "topic4"],
+    "suggestions": "specific learning recommendations",
+    "topics_mastered": ["topic1"],
+    "topics_struggling": ["topic2"]
+  }
+  ```
+- `questions_asked INTEGER`: Count of AI questions
+- GIN index on `ai_feedback` for fast JSON queries
+
+#### 2. Row Level Security (`Backend/migrations/20260205000001_study_sessions_rls.sql`)
+
+Implemented RLS policies:
+- SELECT: Users can only view their own sessions
+- INSERT: Users can only create sessions for themselves
+- UPDATE: Users can update their own sessions (for future feedback edits)
+- DELETE: Users can delete their own history
+
+#### 3. API Endpoints (`Frontend/src/app/api/study-sessions/route.ts`)
+
+**POST /api/study-sessions**
+- Saves completed study session with metadata
+- Validates required fields (noteIds, sessionType)
+- Stores conversation history and AI feedback
+
+**GET /api/study-sessions**
+- Retrieves user's study history
+- Supports pagination (limit/offset params)
+- Ordered by creation date (newest first)
+
+#### 4. Frontend Integration (`Frontend/src/components/notes/QuestionGenerator.tsx`)
+
+Enhanced QuestionGenerator component:
+- Tracks `currentModel` and `categoryId` during conversation
+- Auto-saves session on dialog close via useEffect
+- Only saves if conversation occurred (messages.length > 0)
+- Calculates `questionsAsked` from assistant messages
+- Determines `sessionType` based on noteIds array length
+
+### Status
+
+🚧 **In Progress**
+- ✅ Database schema created
+- ✅ RLS policies implemented
+- ✅ API routes functional
+- ✅ Frontend auto-save working
+- ⏳ Need to run migrations in Supabase
+- ⏳ AI feedback generation (JSON response format) - TODO
+- ⏳ Progress visualization UI - Future
+
+### Next Steps
+
+1. **Execute migrations in Supabase Dashboard**
+2. **Modify AI prompts** to return structured JSON feedback
+3. **Update frontend** to parse and display JSON responses
+4. **Test session saving** in production
+5. **Create progress dashboard** (Story 3.2+)
+
+---
+
 ## Session 2026-02-04 (Part 2) : Markdown UX + Multi-Note Selection (Story 2.4) ✅
 
 ### Objective
