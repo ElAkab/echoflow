@@ -46,11 +46,11 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 				return;
 			}
 
-			// Handle streaming response
+			// Handle streaming response with metadata separation
 			const reader = res.body?.getReader();
 			const decoder = new TextDecoder();
 			let aiResponse = "";
-			let fullResponse = "";
+			let metadata = { analysis: "", weaknesses: "", conclusion: "" };
 
 			if (reader) {
 				while (true) {
@@ -67,9 +67,19 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 
 							try {
 								const parsed = JSON.parse(data);
+								
+								// Check for metadata chunk
+								if (parsed.type === "metadata") {
+									metadata = parsed.data;
+									continue;
+								}
+
+								// Accumulate chat_response content
 								const content = parsed.choices?.[0]?.delta?.content;
 								if (content) {
-									fullResponse += content;
+									aiResponse += content;
+									// Update streaming display
+									setMessages([{ role: "assistant", content: aiResponse }]);
 								}
 							} catch (e) {
 								// Ignore parse errors for incomplete chunks
@@ -79,25 +89,8 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 				}
 			}
 
-			// Try to parse JSON response
-			try {
-				const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-				if (jsonMatch) {
-					const parsed = JSON.parse(jsonMatch[0]);
-					aiResponse = parsed.chat_response || fullResponse;
-					// Store analysis/weaknesses/conclusion for session saving
-					(window as any).__lastAIFeedback = {
-						analysis: parsed.analysis || "",
-						weaknesses: parsed.weaknesses || "",
-						conclusion: parsed.conclusion || ""
-					};
-				} else {
-					aiResponse = fullResponse;
-				}
-			} catch (e) {
-				// Fallback if JSON parsing fails
-				aiResponse = fullResponse;
-			}
+			// Store final metadata
+			(window as any).__lastAIFeedback = metadata;
 
 			setMessages([{ role: "assistant", content: aiResponse }]);
 		} catch (error) {
@@ -138,11 +131,11 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 				return;
 			}
 
-			// Handle streaming response
+			// Handle streaming response with metadata separation
 			const reader = res.body?.getReader();
 			const decoder = new TextDecoder();
 			let aiResponse = "";
-			let fullResponse = "";
+			let metadata = { analysis: "", weaknesses: "", conclusion: "" };
 
 			if (reader) {
 				while (true) {
@@ -159,9 +152,22 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 
 							try {
 								const parsed = JSON.parse(data);
+								
+								// Check for metadata chunk
+								if (parsed.type === "metadata") {
+									metadata = parsed.data;
+									continue;
+								}
+
+								// Accumulate chat_response content
 								const content = parsed.choices?.[0]?.delta?.content;
 								if (content) {
-									fullResponse += content;
+									aiResponse += content;
+									// Update streaming display
+									setMessages([
+										...updatedMessages,
+										{ role: "assistant", content: aiResponse },
+									]);
 								}
 							} catch (e) {
 								// Ignore parse errors
@@ -171,25 +177,10 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 				}
 			}
 
-			// Try to parse JSON response
-			try {
-				const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-				if (jsonMatch) {
-					const parsed = JSON.parse(jsonMatch[0]);
-					aiResponse = parsed.chat_response || fullResponse;
-					// Update feedback
-					(window as any).__lastAIFeedback = {
-						analysis: parsed.analysis || "",
-						weaknesses: parsed.weaknesses || "",
-						conclusion: parsed.conclusion || ""
-					};
-				} else {
-					aiResponse = fullResponse;
-				}
-			} catch (e) {
-				aiResponse = fullResponse;
-			}
+			// Store final metadata
+			(window as any).__lastAIFeedback = metadata;
 
+			// Final update
 			setMessages([
 				...updatedMessages,
 				{ role: "assistant", content: aiResponse },

@@ -137,6 +137,7 @@ export function QuestionGenerator({
 		}
 
 		let accumulatedContent = "";
+		let metadata = { analysis: "", weaknesses: "", conclusion: "" };
 
 		try {
 			console.debug("QuestionGenerator: processStream started");
@@ -152,44 +153,36 @@ export function QuestionGenerator({
 						const data = line.slice(6);
 
 						if (data === "[DONE]") {
-							// Try to parse JSON response
-							let finalContent = accumulatedContent;
-							try {
-								const jsonMatch = accumulatedContent.match(/\{[\s\S]*\}/);
-								if (jsonMatch) {
-									const parsed = JSON.parse(jsonMatch[0]);
-									finalContent = parsed.chat_response || accumulatedContent;
-									// Store feedback for session saving
-									(window as any).__lastAIFeedback = {
-										analysis: parsed.analysis || "",
-										weaknesses: parsed.weaknesses || "",
-										conclusion: parsed.conclusion || ""
-									};
-								}
-							} catch (e) {
-								// Fallback to raw content if JSON parsing fails
-							}
-
+							// Save final message with accumulated content
 							const assistantMessage: Message = {
 								role: "assistant",
-								content: finalContent,
+								content: accumulatedContent,
 							};
 							setMessages((prev) => [
 								...(updatedMessages || prev),
 								assistantMessage,
 							]);
 							setStreamingContent("");
+							
+							// Store metadata for session saving
+							(window as any).__lastAIFeedback = metadata;
 							return;
 						}
 
 						try {
 							const parsed = JSON.parse(data);
-							const content = parsed.choices?.[0]?.delta?.content;
+							
+							// Check for metadata chunk
+							if (parsed.type === "metadata") {
+								metadata = parsed.data;
+								continue;
+							}
 
+							// Stream chat_response content
+							const content = parsed.choices?.[0]?.delta?.content;
 							if (content) {
 								accumulatedContent += content;
-								// Show typing indicator instead of raw content
-								setStreamingContent("✨ Thinking...");
+								setStreamingContent(accumulatedContent);
 							}
 						} catch (e) {
 							// ignore incomplete JSON

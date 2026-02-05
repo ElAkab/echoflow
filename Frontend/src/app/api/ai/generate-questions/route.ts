@@ -6,17 +6,15 @@ const OPENROUTER_DEV_API_KEY =
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 // List of free models to rotate through
+// NOTE: Avoid reasoning models (r1, r1t) as they expose chain-of-thought
 const FREE_MODELS = [
-	"tngtech/deepseek-r1t2-chimera:free",
 	"google/gemini-2.0-flash-exp:free",
 	"meta-llama/llama-3.2-3b-instruct:free",
 	"qwen/qwen-2-7b-instruct:free",
 	"microsoft/phi-3-mini-128k-instruct:free",
 	"z-ai/glm-4.5-air:free",
-	"tngtech/deepseek-r1t-chimera:free",
 	"openai/gpt-oss-120b:free",
 	"stepfun/step-3.5-flash:free",
-	"openai/gpt-oss-120b:free",
 ];
 
 export async function POST(request: NextRequest) {
@@ -53,6 +51,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Fetch last study session for this note to get previous AI feedback
+		// ONLY if we want to build upon previous sessions
 		const { data: lastSession } = await supabase
 			.from("study_sessions")
 			.select("ai_feedback")
@@ -67,52 +66,54 @@ export async function POST(request: NextRequest) {
 			try {
 				const feedback = JSON.parse(lastSession.ai_feedback);
 				previousConclusion = feedback.conclusion || "";
+				console.log("Using previous session conclusion:", previousConclusion);
 			} catch (e) {
-				// Ignore parse errors
+				console.warn("Failed to parse previous ai_feedback:", e);
 			}
+		} else {
+			console.log("No previous session found for this note");
 		}
 
 		// Build conversation messages
 		const categoryName = note.categories?.name || "General";
 		const systemPrompt = `You are a helpful AI tutor helping students review their study notes through interactive conversation.
 
-**CRITICAL: Your response MUST be valid JSON with this exact structure:**
+**CRITICAL INSTRUCTIONS:**
+1. Your response MUST be ONLY valid JSON - NO extra text before or after
+2. DO NOT include your internal reasoning, thinking process, or chain-of-thought
+3. DO NOT make assumptions about the student's knowledge unless they explicitly demonstrate it in their answers
+4. ONLY base your assessment on: the provided note content + the student's actual responses in THIS session
+
+**Required JSON structure:**
 {
   "chat_response": "Your conversational response (use Markdown)",
-  "analysis": "What the student understands about this topic",
-  "weaknesses": "Identified gaps or misconceptions",
-  "conclusion": "Strategic insight for future AI sessions"
+  "analysis": "What the student has demonstrated understanding of in THIS session",
+  "weaknesses": "Gaps identified based on THIS session's answers only",
+  "conclusion": "Strategic insight for future AI sessions based on THIS session only"
 }
 
-Your role:
-- Ask thoughtful, open-ended questions about the note content
-- Provide feedback on student answers (be encouraging and constructive)
-- Help deepen understanding through follow-up questions
-- Adapt to the student's level and responses
-- Keep responses concise and focused
-
+**Context for THIS session:**
 Category: ${categoryName}
 Note Content:
 ${note.content}
-${previousConclusion ? `\n\nPrevious Session Insight:\n${previousConclusion}\n\nUse this to build upon the student's knowledge and address previous weaknesses.` : ""}
+${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NOT assume current knowledge):\n${previousConclusion}` : ""}
 
-Guidelines for "chat_response":
-- If this is the first message, ask ONE relevant question directly
+**Guidelines for "chat_response":**
+- If this is the first message: ask ONE relevant, open-ended question about the note content
 - Respond in the same language as the student's last message
-- Use Markdown: **bold**, short bullets
-
+- Use Markdown: **bold**, bullets where helpful
 - If the student answered, follow this structure:
   1. Start with: "Correct ✅" / "Almost 🤏" / "Incorrect ❌"
   2. Brief explanation (under 60 words, use Markdown)
-  3. Ask ONE follow-up question
-
+  3. Ask ONE thoughtful follow-up question
 - Be conversational, encouraging, focused
 - Keep "chat_response" under 100 words
+- DO NOT expose your reasoning process
 
-Guidelines for feedback fields:
-- "analysis": Specific concepts the student grasped
-- "weaknesses": Topics/concepts the student struggles with
-- "conclusion": Actionable insight (e.g., "Student ready for topic X", "Needs more practice on Y")
+**Guidelines for metadata fields:**
+- "analysis": ONLY concepts the student has explicitly demonstrated in their answers
+- "weaknesses": ONLY based on incorrect/incomplete answers in THIS session
+- "conclusion": Actionable insight based on THIS session's performance only (e.g., "Student demonstrated X", "Needs practice on Y based on answer Z")
 `;
 
 		const conversationMessages = [
@@ -160,23 +161,86 @@ Guidelines for feedback fields:
 					continue; // Try next model
 				}
 
-				// Return the stream directly
+				// Parse stream and extract chat_response for streaming
 				const encoder = new TextEncoder();
 				const stream = new ReadableStream({
 					async start(controller) {
 						const reader = response.body?.getReader();
+						const decoder = new TextDecoder();
 						if (!reader) {
 							controller.close();
 							return;
 						}
 
+						let fullResponse = "";
+						let jsonData = { analysis: "", weaknesses: "", conclusion: "" };
+
 						try {
 							while (true) {
 								const { done, value } = await reader.read();
-								if (done) break;
+								if (done) {
+									// Send final metadata as JSON chunk
+									const metaChunk = `data: ${JSON.stringify({ type: "metadata", data: jsonData })}\n\n`;
+									controller.enqueue(encoder.encode(metaChunk));
+									controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+									break;
+								}
 
-								// Forward the SSE data
-								controller.enqueue(value);
+								const chunk = decoder.decode(value, { stream: true });
+								const lines = chunk.split("\n");
+
+								for (const line of lines) {
+									if (line.startsWith("data: ")) {
+										const data = line.slice(6);
+										if (data === "[DONE]") continue;
+
+										try {
+											const parsed = JSON.parse(data);
+											const content = parsed.choices?.[0]?.delta?.content;
+
+											if (content) {
+												fullResponse += content;
+
+												// Try to parse accumulated JSON
+												const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+												if (jsonMatch) {
+													try {
+														const jsonObj = JSON.parse(jsonMatch[0]);
+														// Store metadata
+														jsonData = {
+															analysis: jsonObj.analysis || "",
+															weaknesses: jsonObj.weaknesses || "",
+															conclusion: jsonObj.conclusion || ""
+														};
+
+														// Stream only chat_response content
+														if (jsonObj.chat_response) {
+															const chatPart = jsonObj.chat_response.substring(
+																fullResponse.lastIndexOf(jsonObj.chat_response) === -1 ? 0 : 
+																fullResponse.split(jsonObj.chat_response)[0].length
+															);
+															
+															if (chatPart) {
+																const streamChunk = `data: ${JSON.stringify({ 
+																	choices: [{ delta: { content: chatPart } }] 
+																})}\n\n`;
+																controller.enqueue(encoder.encode(streamChunk));
+															}
+														}
+													} catch (e) {
+														// Partial JSON, keep accumulating
+													}
+												} else {
+													// Forward raw content if no JSON detected yet
+													controller.enqueue(encoder.encode(line + "\n"));
+												}
+											}
+										} catch (e) {
+											// Forward unparseable lines as-is
+											controller.enqueue(encoder.encode(line + "\n"));
+										}
+									}
+								}
 							}
 						} catch (error) {
 							console.error("Stream error:", error);
