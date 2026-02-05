@@ -20,7 +20,7 @@ const FREE_MODELS = [
 	"qwen/qwen-3-235b-a22b:free",
 	"mistralai/mistral-small-3.1-24b:free",
 	"google/gemma-3-4b-instruct:free",
-	"openrouter/free  (auto-router)",
+	// "openrouter/free  (auto-router)", <-- retirer ou corriger
 ];
 
 export async function POST(request: NextRequest) {
@@ -282,7 +282,7 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 			{
 				error:
 					"All AI models are currently unavailable. Please try again later.",
-				code: "QUOTA_EXHAUSTED"
+				code: "QUOTA_EXHAUSTED",
 			},
 			{ status: 503 },
 		);

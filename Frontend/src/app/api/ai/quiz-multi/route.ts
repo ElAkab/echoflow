@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 // List of free models to rotate through
-// NOTE: Avoid reasoning models (r1, r1t) as they expose chain-of-thought
 const FREE_MODELS = [
 	"google/gemini-2.0-flash-exp:free",
 	"meta-llama/llama-3.2-3b-instruct:free",
@@ -16,7 +15,7 @@ const FREE_MODELS = [
 	"qwen/qwen-3-235b-a22b:free",
 	"mistralai/mistral-small-3.1-24b:free",
 	"google/gemma-3-4b-instruct:free",
-	"openrouter/free  (auto-router)",
+	// "openrouter/free  (auto-router)", <-- retirer ou corriger
 ];
 
 let currentModelIndex = 0;
@@ -368,7 +367,7 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 			{
 				error:
 					"All AI models are currently unavailable. Please try again later.",
-				code: "QUOTA_EXHAUSTED"
+				code: "QUOTA_EXHAUSTED",
 			},
 			{ status: 503 },
 		);

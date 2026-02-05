@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Markdown } from "@/components/ui/markdown";
 import { TokenWarning } from "@/components/TokenWarning";
+import { Button } from "@/components/ui/button";
 
 interface Message {
 	role: "user" | "assistant";
@@ -69,7 +70,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 
 							try {
 								const parsed = JSON.parse(data);
-								
+
 								// Check for metadata chunk
 								if (parsed.type === "metadata") {
 									metadata = parsed.data;
@@ -133,13 +134,13 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 				} catch (e) {
 					console.error("Send message error:", e);
 				}
-				
+
 				// Check if quota exhausted
 				if (errorBody?.code === "QUOTA_EXHAUSTED") {
 					setQuotaExhausted(true);
 					return;
 				}
-				
+
 				alert("Error: Failed to send message");
 				return;
 			}
@@ -165,7 +166,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 
 							try {
 								const parsed = JSON.parse(data);
-								
+
 								// Check for metadata chunk
 								if (parsed.type === "metadata") {
 									metadata = parsed.data;
@@ -239,118 +240,136 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 			<div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 				{quotaExhausted ? (
-					<div className="p-8">
-						<TokenWarning 
-							onRetry={() => {
-								setQuotaExhausted(false);
-								startQuiz();
-							}}
-						/>
+					<div className="space-y-4">
+						<TokenWarning />
+						<div className="flex justify-end gap-2">
+							<Button
+								variant="secondary"
+								onClick={() => (window.location.href = "/pricing")}
+							>
+								Become Premium
+							</Button>
+							<Button
+								onClick={() => {
+									setQuotaExhausted(false);
+									// close modal
+									onClose();
+								}}
+							>
+								Retry
+							</Button>
+						</div>
 					</div>
 				) : (
 					<>
-				{/* Header */}
-				<div className="flex justify-between items-center p-4 border-b">
-					<h2 className="text-xl font-semibold">
-						AI Study Session ({noteIds.length} notes)
-					</h2>
-					<button
-						onClick={async () => {
-							// Save study session before closing
-							const durationSeconds = Math.floor((Date.now() - startTime) / 1000);
-							const questionsAsked = Math.floor(messages.filter(m => m.role === 'assistant').length);
-							const lastFeedback = (window as any).__lastAIFeedback || {};
-							
-							try {
-								// Fetch category_id from first note
-								const firstNoteRes = await fetch(`/api/notes/${noteIds[0]}`);
-								const firstNote = await firstNoteRes.json();
-								const categoryId = firstNote?.category_id || null;
-								
-								await fetch("/api/study-sessions", {
-									method: "POST",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({
-										noteIds,
-										categoryId,
-										sessionType: "MULTI_NOTE",
-										modelUsed: "rotation-free-models",
-										conversationHistory: messages,
-										aiFeedback: JSON.stringify(lastFeedback),
-										questionsAsked,
-										durationSeconds,
-									}),
-								});
-							} catch (error) {
-								console.error("Failed to save study session:", error);
-							}
-							
-							onClose();
-						}}
-						className="px-3 py-1 text-gray-600 hover:text-gray-800 cursor-pointer"
-					>
-						✕ Close
-					</button>
-				</div>
+						{/* Header */}
+						<div className="flex justify-between items-center p-4 border-b">
+							<h2 className="text-xl font-semibold">
+								AI Study Session ({noteIds.length} notes)
+							</h2>
+							<button
+								onClick={async () => {
+									// Save study session before closing
+									const durationSeconds = Math.floor(
+										(Date.now() - startTime) / 1000,
+									);
+									const questionsAsked = Math.floor(
+										messages.filter((m) => m.role === "assistant").length,
+									);
+									const lastFeedback = (window as any).__lastAIFeedback || {};
 
-				{/* Messages */}
-				<div className="flex-1 overflow-y-auto p-4 space-y-4">
-					{messages.map((msg, idx) => (
-						<div
-							key={idx}
-							className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-						>
-							<div
-								className={`max-w-[80%] px-4 py-2 rounded-lg ${
-									msg.role === "user"
-										? "bg-blue-600 text-white"
-										: "bg-gray-200 text-gray-900"
-								}`}
+									try {
+										// Fetch category_id from first note
+										const firstNoteRes = await fetch(
+											`/api/notes/${noteIds[0]}`,
+										);
+										const firstNote = await firstNoteRes.json();
+										const categoryId = firstNote?.category_id || null;
+
+										await fetch("/api/study-sessions", {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({
+												noteIds,
+												categoryId,
+												sessionType: "MULTI_NOTE",
+												modelUsed: "rotation-free-models",
+												conversationHistory: messages,
+												aiFeedback: JSON.stringify(lastFeedback),
+												questionsAsked,
+												durationSeconds,
+											}),
+										});
+									} catch (error) {
+										console.error("Failed to save study session:", error);
+									}
+
+									onClose();
+								}}
+								className="px-3 py-1 text-gray-600 hover:text-gray-800 cursor-pointer"
 							>
-								{msg.role === "assistant" ? (
-									<Markdown content={msg.content} />
-								) : (
-									<p className="whitespace-pre-wrap">{msg.content}</p>
-								)}
-							</div>
+								✕ Close
+							</button>
 						</div>
-					))}
-					{loading && (
-						<div className="flex justify-start">
-							<div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
-								<p>Typing...</p>
-							</div>
-						</div>
-					)}
-				</div>
 
-				{/* Input */}
-				<div className="p-4 border-t">
-					<div className="flex gap-2">
-						<textarea
-							value={input}
-							onChange={(e) => setInput(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) {
-									e.preventDefault();
-									sendMessage();
-								}
-							}}
-							placeholder="Type your answer here... (Shift+Enter for new line)"
-							className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none"
-							rows={3}
-							disabled={loading}
-						/>
-						<button
-							onClick={sendMessage}
-							disabled={loading || !input.trim()}
-							className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-						>
-							Send
-						</button>
-					</div>
-				</div>
-				</>
+						{/* Messages */}
+						<div className="flex-1 overflow-y-auto p-4 space-y-4">
+							{messages.map((msg, idx) => (
+								<div
+									key={idx}
+									className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+								>
+									<div
+										className={`max-w-[80%] px-4 py-2 rounded-lg ${
+											msg.role === "user"
+												? "bg-blue-600 text-white"
+												: "bg-gray-200 text-gray-900"
+										}`}
+									>
+										{msg.role === "assistant" ? (
+											<Markdown content={msg.content} />
+										) : (
+											<p className="whitespace-pre-wrap">{msg.content}</p>
+										)}
+									</div>
+								</div>
+							))}
+							{loading && (
+								<div className="flex justify-start">
+									<div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
+										<p>Typing...</p>
+									</div>
+								</div>
+							)}
+						</div>
+
+						{/* Input */}
+						<div className="p-4 border-t">
+							<div className="flex gap-2">
+								<textarea
+									value={input}
+									onChange={(e) => setInput(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault();
+											sendMessage();
+										}
+									}}
+									placeholder="Type your answer here... (Shift+Enter for new line)"
+									className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none"
+									rows={3}
+									disabled={loading}
+								/>
+								<button
+									onClick={sendMessage}
+									disabled={loading || !input.trim()}
+									className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+								>
+									Send
+								</button>
+							</div>
+						</div>
+					</>
 				)}
 			</div>
 		</div>

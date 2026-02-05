@@ -89,15 +89,15 @@ export function QuestionGenerator({
 					if (noteIdsToSave.length === 0) return;
 
 					// Calculate duration
-					const durationSeconds = sessionStartTime > 0 
-						? Math.floor((Date.now() - sessionStartTime) / 1000) 
-						: 0;
+					const durationSeconds =
+						sessionStartTime > 0
+							? Math.floor((Date.now() - sessionStartTime) / 1000)
+							: 0;
 
 					// Get structured AI feedback
 					const lastFeedback = (window as any).__lastAIFeedback || {};
-					const aiFeedback = messages.length > 0
-						? JSON.stringify(lastFeedback)
-						: null;
+					const aiFeedback =
+						messages.length > 0 ? JSON.stringify(lastFeedback) : null;
 
 					await fetch("/api/study-sessions", {
 						method: "POST",
@@ -105,11 +105,13 @@ export function QuestionGenerator({
 						body: JSON.stringify({
 							noteIds: noteIdsToSave,
 							categoryId,
-							sessionType: noteIds && noteIds.length > 1 ? "MULTI_NOTE" : "SINGLE_NOTE",
+							sessionType:
+								noteIds && noteIds.length > 1 ? "MULTI_NOTE" : "SINGLE_NOTE",
 							modelUsed: currentModel,
 							conversationHistory: messages,
 							aiFeedback,
-							questionsAsked: messages.filter((m) => m.role === "assistant").length,
+							questionsAsked: messages.filter((m) => m.role === "assistant")
+								.length,
 							durationSeconds,
 						}),
 					});
@@ -120,7 +122,15 @@ export function QuestionGenerator({
 		};
 
 		handleSaveSession();
-	}, [isOpen, messages, noteId, noteIds, categoryId, currentModel, sessionStartTime]);
+	}, [
+		isOpen,
+		messages,
+		noteId,
+		noteIds,
+		categoryId,
+		currentModel,
+		sessionStartTime,
+	]);
 
 	const setOpen = (val: boolean) => {
 		if (onOpenChange) onOpenChange(val);
@@ -146,7 +156,10 @@ export function QuestionGenerator({
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
-				console.debug("QuestionGenerator: received chunk", value && value.byteLength);
+				console.debug(
+					"QuestionGenerator: received chunk",
+					value && value.byteLength,
+				);
 				const chunk = decoder.decode(value);
 				const lines = chunk.split("\n");
 
@@ -165,7 +178,7 @@ export function QuestionGenerator({
 								assistantMessage,
 							]);
 							setStreamingContent("");
-							
+
 							// Store metadata for session saving
 							(window as any).__lastAIFeedback = metadata;
 							return;
@@ -173,7 +186,7 @@ export function QuestionGenerator({
 
 						try {
 							const parsed = JSON.parse(data);
-							
+
 							// Check for metadata chunk
 							if (parsed.type === "metadata") {
 								metadata = parsed.data;
@@ -201,7 +214,10 @@ export function QuestionGenerator({
 	};
 
 	const startConversation = async () => {
-		console.debug("QuestionGenerator: startConversation called", { noteId, noteIds });
+		console.debug("QuestionGenerator: startConversation called", {
+			noteId,
+			noteIds,
+		});
 		setOpen(true);
 		setMessages([]);
 		setLoading(true);
@@ -210,7 +226,7 @@ export function QuestionGenerator({
 		try {
 			// Fetch note data to get categoryId and previous session
 			let fetchedCategoryId: string | undefined;
-			
+
 			if (noteId) {
 				const noteRes = await fetch(`/api/notes/${noteId}`);
 				if (noteRes.ok) {
@@ -252,6 +268,13 @@ export function QuestionGenerator({
 				try {
 					errorBody = await res.json();
 				} catch (e) {}
+
+				// NEW: Check for quota exhausted
+				if (errorBody?.code === "QUOTA_EXHAUSTED") {
+					setQuotaExhausted(true);
+					return;
+				}
+
 				alert(`Error: ${errorBody?.error || res.statusText}`);
 				return;
 			}
@@ -304,13 +327,13 @@ export function QuestionGenerator({
 				try {
 					errorBody = await res.json();
 				} catch (e) {}
-				
+
 				// Check if quota exhausted
 				if (errorBody?.code === "QUOTA_EXHAUSTED") {
 					setQuotaExhausted(true);
 					return;
 				}
-				
+
 				alert(`Error: ${errorBody?.error || res.statusText}`);
 				return;
 			}
@@ -362,78 +385,96 @@ export function QuestionGenerator({
 					</DialogHeader>
 
 					{quotaExhausted ? (
-						<TokenWarning 
-							onRetry={() => {
-								setQuotaExhausted(false);
-								startConversation();
-							}}
-						/>
+						<div className="space-y-4">
+							<TokenWarning />
+							<div className="flex justify-end gap-2">
+								<Button
+									variant="secondary"
+									onClick={() => (window.location.href = "/pricing")}
+								>
+									Become Premium
+								</Button>
+								<Button
+									onClick={() => {
+										setQuotaExhausted(false);
+										startConversation();
+									}}
+								>
+									Retry
+								</Button>
+							</div>
+						</div>
 					) : (
 						<>
-					{/* Messages */}
-					<div className="flex-1 overflow-y-auto space-y-4 py-4">
-						{messages.map((msg, idx) => (
-							<div
-								key={idx}
-								className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-							>
-								<div
-									className={`max-w-[85%] px-4 py-3 rounded-lg ${
-										msg.role === "user"
-											? "bg-primary text-primary-foreground"
-											: "bg-muted text-foreground"
-									}`}
-								>
-									{msg.role === "assistant" ? (
-										<Markdown content={msg.content} />
-									) : (
-										<p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-									)}
-								</div>
+							{/* Messages */}
+							<div className="flex-1 overflow-y-auto space-y-4 py-4">
+								{messages.map((msg, idx) => (
+									<div
+										key={idx}
+										className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+									>
+										<div
+											className={`max-w-[85%] px-4 py-3 rounded-lg ${
+												msg.role === "user"
+													? "bg-primary text-primary-foreground"
+													: "bg-muted text-foreground"
+											}`}
+										>
+											{msg.role === "assistant" ? (
+												<Markdown content={msg.content} />
+											) : (
+												<p className="text-sm whitespace-pre-wrap">
+													{msg.content}
+												</p>
+											)}
+										</div>
+									</div>
+								))}
+								{streamingContent && (
+									<div className="flex justify-start">
+										<div className="bg-muted text-foreground px-4 py-3 rounded-lg max-w-[85%]">
+											<Markdown content={streamingContent} />
+										</div>
+									</div>
+								)}
+								{loading && !streamingContent && (
+									<div className="flex justify-start">
+										<div className="bg-muted text-foreground px-4 py-3 rounded-lg">
+											<p className="text-sm">Thinking...</p>
+										</div>
+									</div>
+								)}
+								<div ref={messagesEndRef} />
 							</div>
-						))}
-						{streamingContent && (
-							<div className="flex justify-start">
-								<div className="bg-muted text-foreground px-4 py-3 rounded-lg max-w-[85%]">
-									<Markdown content={streamingContent} />
-								</div>
-							</div>
-						)}
-						{loading && !streamingContent && (
-							<div className="flex justify-start">
-								<div className="bg-muted text-foreground px-4 py-3 rounded-lg">
-									<p className="text-sm">Thinking...</p>
-								</div>
-							</div>
-						)}
-						<div ref={messagesEndRef} />
-					</div>
 
-					{/* Input */}
-					<div className="border-t pt-4 space-y-3">
-						<Textarea
-							value={input}
-							onChange={(e) => setInput(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) {
-									e.preventDefault();
-									sendMessage();
-								}
-							}}
-							placeholder="Type your answer... (Shift+Enter for new line)"
-							className="resize-none min-h-[100px]"
-							disabled={loading}
-						/>
-						<div className="flex justify-end gap-2">
-							<Button variant="outline" onClick={() => setOpen(false)}>
-								Close
-							</Button>
-							<Button onClick={sendMessage} disabled={loading || !input.trim()}>
-								Send
-							</Button>
-						</div>
-					</div>
-					</>
+							{/* Input */}
+							<div className="border-t pt-4 space-y-3">
+								<Textarea
+									value={input}
+									onChange={(e) => setInput(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault();
+											sendMessage();
+										}
+									}}
+									placeholder="Type your answer... (Shift+Enter for new line)"
+									className="resize-none min-h-[100px]"
+									disabled={loading}
+								/>
+								<div className="flex justify-end gap-2">
+									<Button variant="outline" onClick={() => setOpen(false)}>
+										Close
+									</Button>
+									<Button
+										onClick={sendMessage}
+										disabled={loading || !input.trim()}
+									>
+										Send
+									</Button>
+								</div>
+							</div>
+						</>
 					)}
 				</DialogContent>
 			</Dialog>

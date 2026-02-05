@@ -207,6 +207,22 @@ export function NotesContent({
 							>
 								Cancel
 							</Button>
+
+							{/* Multi-Note Quiz Dialog (hidden trigger) */}
+							<div className="hidden" aria-hidden>
+								<QuestionGenerator
+									noteIds={quizNoteIds ?? undefined}
+									open={isQuizOpen}
+									onOpenChange={(v) => {
+										if (!v) {
+											setIsQuizOpen(false);
+											setQuizNoteIds(null);
+										} else {
+											setIsQuizOpen(true);
+										}
+									}}
+								/>
+							</div>
 						</>
 					) : (
 						<>
@@ -511,20 +527,6 @@ export function NotesContent({
 					)}
 				</DialogContent>
 			</Dialog>
-
-			{/* Multi-Note Quiz Dialog */}
-			<QuestionGenerator
-				noteIds={quizNoteIds ?? undefined}
-				open={isQuizOpen}
-				onOpenChange={(v) => {
-					if (!v) {
-						setIsQuizOpen(false);
-						setQuizNoteIds(null);
-					} else {
-						setIsQuizOpen(true);
-					}
-				}}
-			/>
 		</div>
 	);
 }
