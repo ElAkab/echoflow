@@ -88,9 +88,14 @@ export async function getUserProfile() {
 }
 
 // Sign in with demo account
-export async function signInWithDemo() {
+export async function signInWithDemo(providedPassword: string) {
 	const supabase = await createClient();
-	
+
+	// Verify the provided password matches the demo password
+	if (providedPassword !== process.env.DEMO_ACCOUNT_PASSWORD) {
+		return { error: "Invalid demo password" };
+	}
+
 	const { data, error } = await supabase.auth.signInWithPassword({
 		email: "demo@brainloop.app",
 		password: process.env.DEMO_ACCOUNT_PASSWORD || "",

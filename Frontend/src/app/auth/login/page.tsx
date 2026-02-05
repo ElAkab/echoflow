@@ -28,9 +28,15 @@ export default function LoginPage() {
 		setLoading(false);
 	}
 
-	async function handleDemoSignIn() {
+	async function handleDemoSignIn(formData: FormData) {
 		setLoading(true);
-		await signInWithDemo();
+		const password = formData.get("demoPassword") as string;
+		const result = await signInWithDemo(password);
+		
+		if (result?.error) {
+			setMessage(result.error);
+			setLoading(false);
+		}
 	}
 
 	return (
@@ -119,8 +125,20 @@ export default function LoginPage() {
 						</button>
 					</form>
 
-					{/* Demo Account Button */}
-					<form action={handleDemoSignIn}>
+					{/* Demo Account */}
+					<form action={handleDemoSignIn} className="space-y-3">
+						<div className="relative flex justify-center text-xs">
+							<span className="px-4 dark:bg-[#172130] text-gray-400">
+								For testers only
+							</span>
+						</div>
+						<input
+							type="password"
+							name="demoPassword"
+							required
+							placeholder="Demo access code"
+							className="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50 outline-none transition"
+						/>
 						<button
 							type="submit"
 							disabled={loading}
