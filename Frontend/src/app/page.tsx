@@ -1,3 +1,5 @@
+import { AppShell } from "@/components/layout/AppShell";
+
 export default function HomePage() {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8 md:p-24 bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
@@ -24,13 +26,15 @@ export default function HomePage() {
 					</a>
 
 					<a
-						href="#features"
+						href="learn-more"
 						className="px-8 py-4 text-primary font-semibold rounded-lg border-2 border-primary hover:border-primary-700 transition-all"
 					>
 						Learn More
 					</a>
 				</div>
 
+				{/* todo 1 : Find something better than emojis */}
+				{/* todo 2 : Find how to place a "+" between the two first cards and finish with a "=" before the last card */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
 					<div className="p-6 rounded-xl shadow-md hover:shadow-lg transition">
 						<div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">

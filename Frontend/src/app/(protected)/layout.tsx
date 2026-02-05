@@ -1,3 +1,5 @@
+// This file defines the layout for all protected routes in the application. It wraps the content in an AppShell component that includes the header and sidebar, and provides a consistent layout for all authenticated pages.
+
 import React from "react";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
