@@ -356,6 +356,18 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 									</div>
 								</div>
 							)}
+
+							{/* If not loading and no meaningful assistant response, show TokenWarning */}
+							{!loading && !quotaExhausted && (messages.length === 0 || (messages.length > 0 && messages[messages.length - 1].role === "assistant" && messages[messages.length - 1].content.trim() === "")) && (
+								<TokenWarning
+									errorType="quota_exhausted"
+									variant="inline"
+									onRetryLater={() => {
+										setQuotaExhausted(false);
+										startQuiz();
+									}}
+								/>
+							)}
 						</div>
 
 						{/* Input */}

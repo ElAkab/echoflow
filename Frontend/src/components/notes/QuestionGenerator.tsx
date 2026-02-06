@@ -448,6 +448,35 @@ export function QuestionGenerator({
 										</div>
 									</div>
 								)}
+
+								{/* Show TokenWarning when not loading and there is no response (empty or interrupted) */}
+								{(() => {
+									const lastAssistantEmpty =
+										messages.length > 0 &&
+										messages[messages.length - 1].role === "assistant" &&
+										messages[messages.length - 1].content.trim() === "";
+
+									if (
+										!loading &&
+										!quotaExhausted &&
+										!streamingContent &&
+										(messages.length === 0 || lastAssistantEmpty)
+									) {
+										return (
+											<TokenWarning
+												errorType="quota_exhausted"
+												variant="inline"
+												onRetryLater={() => {
+													// Try restarting the conversation when the user retries
+													startConversation();
+												}}
+											/>
+										);
+									}
+
+									return null;
+								})()}
+
 								<div ref={messagesEndRef} />
 							</div>
 

@@ -86,14 +86,19 @@ export function TokenWarning({
 					</p>
 				</div>
 				<div className="flex gap-2">
-					<Button variant="outline" size="sm" onClick={handleRetryLater}>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleRetryLater}
+						className="dark:hover:bg-gray-700/30 dark:hover:text-white transition cursor-pointer"
+					>
 						<Clock className="h-4 w-4 mr-2 cursor-pointer" />
 						Retry
 					</Button>
 					<Button
 						size="sm"
 						onClick={handleUpgradeToPremium}
-						className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+						className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition cursor-pointer"
 					>
 						<Crown className="h-4 w-4 mr-2 cursor-pointer" />
 						Premium
