@@ -269,12 +269,14 @@ export function QuestionGenerator({
 					errorBody = await res.json();
 				} catch (e) {}
 
-				// NEW: Check for quota exhausted
+				// Check for quota exhausted
 				if (errorBody?.code === "QUOTA_EXHAUSTED") {
 					setQuotaExhausted(true);
+					setLoading(false); // CRITICAL: stop loading state
 					return;
 				}
 
+				setLoading(false);
 				alert(`Error: ${errorBody?.error || res.statusText}`);
 				return;
 			}
@@ -331,9 +333,11 @@ export function QuestionGenerator({
 				// Check if quota exhausted
 				if (errorBody?.code === "QUOTA_EXHAUSTED") {
 					setQuotaExhausted(true);
+					setLoading(false); // CRITICAL: stop loading state
 					return;
 				}
 
+				setLoading(false);
 				alert(`Error: ${errorBody?.error || res.statusText}`);
 				return;
 			}

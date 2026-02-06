@@ -166,6 +166,7 @@ export async function POST(request: NextRequest) {
 3. DO NOT make assumptions about the student's knowledge unless they explicitly demonstrate it in their answers
 4. ONLY base your assessment on: the provided note content + the student's actual responses in THIS session
 
+Responds only to the following JSON format, with all keys and values ​​enclosed in quotation marks, and without any escaped characters.
 **Required JSON structure:**
 {
   "chat_response": "Your conversational response (use Markdown)",
@@ -266,12 +267,28 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 						}
 
 						let fullResponse = "";
+						let lastSentLength = 0;
 						let jsonData = { analysis: "", weaknesses: "", conclusion: "" };
 
 						try {
 							while (true) {
 								const { done, value } = await reader.read();
 								if (done) {
+									// Parse final JSON and extract metadata
+									try {
+										const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+										if (jsonMatch) {
+											const jsonObj = JSON.parse(jsonMatch[0]);
+											jsonData = {
+												analysis: jsonObj.analysis || "",
+												weaknesses: jsonObj.weaknesses || "",
+												conclusion: jsonObj.conclusion || "",
+											};
+										}
+									} catch (e) {
+										console.warn("Failed to parse final JSON:", e);
+									}
+
 									// Send final metadata as JSON chunk
 									const metaChunk = `data: ${JSON.stringify({ type: "metadata", data: jsonData })}\n\n`;
 									controller.enqueue(encoder.encode(metaChunk));
@@ -294,32 +311,22 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 											if (content) {
 												fullResponse += content;
 
-												// Try to parse accumulated JSON
+												// Try to extract chat_response incrementally
 												const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
 												if (jsonMatch) {
 													try {
 														const jsonObj = JSON.parse(jsonMatch[0]);
-														// Store metadata
-														jsonData = {
-															analysis: jsonObj.analysis || "",
-															weaknesses: jsonObj.weaknesses || "",
-															conclusion: jsonObj.conclusion || "",
-														};
-
-														// Stream only chat_response content
 														if (jsonObj.chat_response) {
-															const chatPart = jsonObj.chat_response.substring(
-																fullResponse.lastIndexOf(
-																	jsonObj.chat_response,
-																) === -1
-																	? 0
-																	: fullResponse.split(jsonObj.chat_response)[0]
-																			.length,
-															);
+															// Stream only NEW characters from chat_response
+															const currentLength = jsonObj.chat_response.length;
+															if (currentLength > lastSentLength) {
+																const newContent = jsonObj.chat_response.substring(
+																	lastSentLength,
+																);
+																lastSentLength = currentLength;
 
-															if (chatPart) {
 																const streamChunk = `data: ${JSON.stringify({
-																	choices: [{ delta: { content: chatPart } }],
+																	choices: [{ delta: { content: newContent } }],
 																})}\n\n`;
 																controller.enqueue(encoder.encode(streamChunk));
 															}
@@ -327,14 +334,10 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 													} catch (e) {
 														// Partial JSON, keep accumulating
 													}
-												} else {
-													// Forward raw content if no JSON detected yet
-													controller.enqueue(encoder.encode(line + "\n"));
 												}
 											}
 										} catch (e) {
-											// Forward unparseable lines as-is
-											controller.enqueue(encoder.encode(line + "\n"));
+											// Ignore unparseable chunks
 										}
 									}
 								}

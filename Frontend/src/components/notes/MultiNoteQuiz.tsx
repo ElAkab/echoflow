@@ -43,8 +43,21 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 			});
 
 			if (!res.ok) {
-				const errorText = await res.text();
-				console.error("Quiz start error:", errorText);
+				let errorBody: any = null;
+				try {
+					errorBody = await res.json();
+				} catch (e) {
+					console.error("Quiz start error:", e);
+				}
+
+				// Check if quota exhausted
+				if (errorBody?.code === "QUOTA_EXHAUSTED") {
+					setQuotaExhausted(true);
+					setLoading(false); // CRITICAL: stop loading state
+					return;
+				}
+
+				setLoading(false);
 				alert(`Error: Failed to start quiz`);
 				return;
 			}
@@ -138,9 +151,11 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 				// Check if quota exhausted
 				if (errorBody?.code === "QUOTA_EXHAUSTED") {
 					setQuotaExhausted(true);
+					setLoading(false); // CRITICAL: stop loading state
 					return;
 				}
 
+				setLoading(false);
 				alert("Error: Failed to send message");
 				return;
 			}

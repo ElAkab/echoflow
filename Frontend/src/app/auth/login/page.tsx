@@ -32,7 +32,7 @@ export default function LoginPage() {
 		setLoading(true);
 		const password = formData.get("demoPassword") as string;
 		const result = await signInWithDemo(password);
-		
+
 		if (result?.error) {
 			setMessage(result.error);
 			setLoading(false);
