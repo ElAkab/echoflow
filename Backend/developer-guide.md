@@ -1,4 +1,4 @@
-# Brain Loop - Developer Guide
+# Echoflow - Developer Guide
 
 **Author:** Winston (Architect)  
 **Date:** 2026-02-01  
@@ -8,7 +8,7 @@
 
 ## 🎯 Purpose of This Guide
 
-This document provides **practical, copy-paste examples** for implementing the Brain Loop backend. It's designed so that any developer (including AI assistants) can understand and extend the system.
+This document provides **practical, copy-paste examples** for implementing the Echoflow backend. It's designed so that any developer (including AI assistants) can understand and extend the system.
 
 ---
 
@@ -29,7 +29,7 @@ Before implementing backend features, ensure:
 ### Step 1: Initialize Supabase
 
 ```bash
-cd /path/to/brain-loop
+cd /path/to/echoflow
 pnpm add -D supabase  # If not already installed
 npx supabase init
 ```

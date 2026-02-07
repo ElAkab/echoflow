@@ -1,4 +1,4 @@
-# Brain Loop - Backend Architecture Summary
+# Echoflow - Backend Architecture Summary
 
 **Architect:** Winston  
 **Date:** 2026-02-01  

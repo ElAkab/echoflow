@@ -1,4 +1,4 @@
-# Brain Loop - Quota Strategy (Freemium-First)
+# Echoflow - Quota Strategy (Freemium-First)
 
 **Author:** Winston (Architect)  
 **Date:** 2026-02-01  
@@ -8,7 +8,7 @@
 
 ## Philosophy: Maximum Generosity for Core Features
 
-Brain Loop adopts a **truly freemium model** where the main value proposition (AI-powered learning via quizzes) remains **completely free and unlimited**. Monetization focuses on **premium enhancements**, not core functionality.
+Echoflow adopts a **truly freemium model** where the main value proposition (AI-powered learning via quizzes) remains **completely free and unlimited**. Monetization focuses on **premium enhancements**, not core functionality.
 
 ---
 
@@ -67,7 +67,7 @@ async function requestHint(userId: string) {
 - **Analytics Dashboard**: Detailed learning progress tracking
 - **Export**: Download notes and quiz history
 - **Priority Support**: Faster response times
-- **Custom Branding**: Remove "Powered by Brain Loop" footer
+- **Custom Branding**: Remove "Powered by Echoflow" footer
 
 ### 💰 Pricing (Suggested)
 

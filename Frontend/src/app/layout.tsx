@@ -6,7 +6,7 @@ import "./globals.css";
 
 // Metadata for the application, including title and description.
 export const metadata: Metadata = {
-	title: "Brain Loop - AI-Powered Learning",
+	title: "Echoflow - AI-Powered Learning",
 	description:
 		"Master your knowledge with AI-generated quizzes from your notes",
 };

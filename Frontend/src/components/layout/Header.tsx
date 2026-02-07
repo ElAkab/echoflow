@@ -26,7 +26,7 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <SheetHeader className="p-6 pb-0">
-              <SheetTitle>Brain Loop</SheetTitle>
+              <SheetTitle>Echoflow</SheetTitle>
             </SheetHeader>
             <MobileNav />
           </SheetContent>
@@ -34,7 +34,7 @@ export function Header() {
 
         {/* Logo (Mobile) */}
         <div className="flex-1 md:hidden">
-          <h1 className="text-xl font-bold">Brain Loop</h1>
+          <h1 className="text-xl font-bold">Echoflow</h1>
         </div>
 
         {/* Spacer (Desktop) */}

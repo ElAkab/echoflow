@@ -24,7 +24,7 @@ export function Sidebar() {
 	return (
 		<aside className="hidden md:flex w-64 flex-col border-r bg-background">
 			<div className="p-6">
-				<h1 className="text-2xl font-bold text-primary">Brain Loop</h1>
+				<h1 className="text-2xl font-bold text-primary">Echoflow</h1>
 				<p className="text-sm text-muted-foreground">Active Recall Learning</p>
 			</div>
 

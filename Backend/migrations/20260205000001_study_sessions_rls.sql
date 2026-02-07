@@ -1,5 +1,5 @@
 -- =============================================
--- Brain Loop - RLS Policies for Study Sessions
+-- Echoflow - RLS Policies for Study Sessions
 -- =============================================
 -- Migration: 20260205000001_study_sessions_rls.sql
 -- Author: Dev (BMade)

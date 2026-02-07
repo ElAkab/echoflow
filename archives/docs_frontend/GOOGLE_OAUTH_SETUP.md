@@ -12,10 +12,10 @@ Configurer Google OAuth pour contourner le problème d'email et valider Story 1.
 1. Ouvrez : https://console.cloud.google.com/
 2. Cliquez sur le sélecteur de projet (en haut à gauche)
 3. **New Project**
-4. Project name : `Brain Loop`
+4. Project name : `Echoflow`
 5. **Create**
 6. Attendez quelques secondes que le projet soit créé
-7. Sélectionnez le projet "Brain Loop"
+7. Sélectionnez le projet "Echoflow"
 
 ---
 
@@ -26,7 +26,7 @@ Configurer Google OAuth pour contourner le problème d'email et valider Story 1.
 3. **Create**
 
 **Remplissez le formulaire :**
-- App name : `Brain Loop`
+- App name : `Echoflow`
 - User support email : **votre email personnel**
 - App logo : (laissez vide pour l'instant)
 - Application home page : `http://localhost:3000`
@@ -55,7 +55,7 @@ Configurer Google OAuth pour contourner le problème d'email et valider Story 1.
 
 **Remplissez :**
 - Application type : **Web application**
-- Name : `Brain Loop - Development`
+- Name : `Echoflow - Development`
 
 **Authorized JavaScript origins** :
 ```
@@ -114,7 +114,7 @@ https://kuchunrwgaclpcokikcl.supabase.co/auth/v1/callback
 - ✅ Nouvelle fenêtre/onglet s'ouvre
 - ✅ Page Google "Sign in with Google"
 - ✅ Sélectionnez votre compte Gmail
-- ✅ Popup de consentement "Brain Loop wants to access..."
+- ✅ Popup de consentement "Echoflow wants to access..."
 - ✅ Cliquez **Continue**
 - ✅ Redirect vers http://localhost:3000/dashboard
 - ✅ Dashboard affiche votre email Gmail
@@ -131,7 +131,7 @@ https://kuchunrwgaclpcokikcl.supabase.co/auth/v1/callback
 
 ## 🐛 Troubleshooting
 
-### Erreur : "Access blocked: Brain Loop has not completed..."
+### Erreur : "Access blocked: Echoflow has not completed..."
 
 **Cause** : Vous n'avez pas ajouté votre email aux Test users
 

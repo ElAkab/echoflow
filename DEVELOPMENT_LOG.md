@@ -1,6 +1,6 @@
-# Brain Loop - Development Log
+# Echoflow - Development Log
 
-This document tracks the development journey of Brain Loop, documenting each session's objectives, implementation details, and GitHub Copilot CLI features utilized.
+This document tracks the development journey of Echoflow, documenting each session's objectives, implementation details, and GitHub Copilot CLI features utilized.
 
 ---
 
@@ -516,7 +516,7 @@ MVP functionality was complete but lacked visual polish and consistency. The bri
 
 ### Objective
 
-Initialize project documentation system and configure GitHub Copilot CLI integration for the Brain Loop challenge.
+Initialize project documentation system and configure GitHub Copilot CLI integration for the Echoflow challenge.
 
 ### Context
 
@@ -1057,7 +1057,7 @@ Implement conversational AI system where users can be questioned on their notes 
 
 ### Context
 
-Epic 2 Stories 2.1 & 2.2 complete (Categories + Notes CRUD working). Now implementing the core value proposition: AI-powered questioning based on user notes. This is the MVP's killer feature that differentiates Brain Loop from basic note apps.
+Epic 2 Stories 2.1 & 2.2 complete (Categories + Notes CRUD working). Now implementing the core value proposition: AI-powered questioning based on user notes. This is the MVP's killer feature that differentiates Echoflow from basic note apps.
 
 ### GitHub Copilot CLI Features Used
 

@@ -1,8 +1,8 @@
-# Brain Loop Fullstack Architecture Document
+# Echoflow Fullstack Architecture Document
 
 ## Introduction
 
-This document outlines the complete fullstack architecture for Brain Loop, including backend systems, frontend implementation, and their integration. It serves as the single source of truth for AI-driven development, ensuring consistency across the entire technology stack.
+This document outlines the complete fullstack architecture for Echoflow, including backend systems, frontend implementation, and their integration. It serves as the single source of truth for AI-driven development, ensuring consistency across the entire technology stack.
 
 This unified approach combines what would traditionally be separate backend and frontend architecture documents, streamlining the development process for modern fullstack applications where these concerns are increasingly intertwined.
 
@@ -18,7 +18,7 @@ N/A - Greenfield project.
 ## High Level Architecture
 
 ### Technical Summary
-Brain Loop adoptera une architecture **"Serverless Monolith"** modulaire, construite autour de **Next.js 14+ (App Router)**. Le frontend et l'API backend résideront dans le même dépôt (Monorepo) pour simplifier le partage de types TypeScript.
+Echoflow adoptera une architecture **"Serverless Monolith"** modulaire, construite autour de **Next.js 14+ (App Router)**. Le frontend et l'API backend résideront dans le même dépôt (Monorepo) pour simplifier le partage de types TypeScript.
 
 Pour le MVP, nous déploierons sur **Vercel** (Frontend/API) et **Supabase** (DB/Auth) pour profiter de leur tier gratuit. Cependant, l'application sera conçue pour être **"Docker-ready"**, permettant une migration facile vers un hébergement VPS (ex: Hetzner + Coolify) si les coûts Vercel deviennent prohibitifs à l'échelle.
 
@@ -346,7 +346,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 ## Unified Project Structure
 
 ```text
-brain-loop/
+echoflow/
 ├── .github/                    # CI/CD workflows (Tests, Lint)
 ├── tests/                      # E2E Tests (Playwright)
 ├── src/

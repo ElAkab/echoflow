@@ -1,4 +1,4 @@
-# Brain Loop Product Requirements Document (PRD)
+# Echoflow Product Requirements Document (PRD)
 
 ## Goals and Background Context
 
@@ -11,9 +11,9 @@
 
 ### Background Context
 
-Brain Loop est une application SaaS conçue pour les autodidactes, étudiants et professionnels en formation continue qui souhaitent optimiser leur processus d'apprentissage. Contrairement aux outils classiques de flashcards ou de quiz statiques, Brain Loop utilise l'IA générative pour interroger l'utilisateur directement sur le contenu de ses propres notes (texte libre), simulant ainsi un tuteur personnel.
+Echoflow est une application SaaS conçue pour les autodidactes, étudiants et professionnels en formation continue qui souhaitent optimiser leur processus d'apprentissage. Contrairement aux outils classiques de flashcards ou de quiz statiques, Echoflow utilise l'IA générative pour interroger l'utilisateur directement sur le contenu de ses propres notes (texte libre), simulant ainsi un tuteur personnel.
 
-Le projet répond à un besoin d'efficacité pédagogique tout en adressant la contrainte économique des LLM. En s'appuyant sur une architecture technique optimisée (ex: Next.js, Supabase) et l'agrégateur OpenRouter, Brain Loop vise à offrir un modèle freemium viable où l'utilisateur reste maître de sa consommation. **Les choix techniques mentionnés sont indicatifs et pourront être ajustés lors de la phase d’architecture.**
+Le projet répond à un besoin d'efficacité pédagogique tout en adressant la contrainte économique des LLM. En s'appuyant sur une architecture technique optimisée (ex: Next.js, Supabase) et l'agrégateur OpenRouter, Echoflow vise à offrir un modèle freemium viable où l'utilisateur reste maître de sa consommation. **Les choix techniques mentionnés sont indicatifs et pourront être ajustés lors de la phase d’architecture.**
 
 L'expérience utilisateur est centrée sur la fluidité : de la prise de note rapide à l'interrogation intelligente, avec des fonctionnalités innovantes comme la génération dynamique de liens de recherche pour approfondir les concepts.
 
@@ -131,7 +131,7 @@ Une interface **minimaliste et sans distraction** ("Distraction-free"), favorisa
     - **Goal:** Permettre à l'utilisateur de gérer ses Catégories et ses Notes (Création, Lecture, Modification, Suppression).
     - _Why second?_ Il faut du contenu (les notes) avant de pouvoir interroger l'IA.
 
-3.  **Epic 3: The "Brain Loop" (AI Engine)**
+3.  **Epic 3: The "Echoflow" (AI Engine)**
     - **Goal:** Implémenter le cœur du système : Connexion OpenRouter, sélection des notes, Chat interactif et Feedback IA.
     - _Why third?_ C'est la fonctionnalité la plus complexe. Elle nécessite que les Epics 1 et 2 soient solides. C'est ici qu'on implémente votre "PoC" de manière robuste.
 
@@ -226,7 +226,7 @@ Permettre à l'utilisateur de structurer ses connaissances en créant des catég
   - _AC3:_ Floating action bar or button "Interrogation" appears when at least 1 note is selected, with a limit of 5 notes max (to control prompt size).
   - _AC4:_ The number of selected notes is clearly visible.
 
-## Epic 3 Details - The "Brain Loop" (AI Engine)
+## Epic 3 Details - The "Echoflow" (AI Engine)
 
 ### Goal
 
@@ -313,7 +313,7 @@ Gérer les limites d'utilisation de manière ludique et transparente pour contr�
 
 ### UX Expert Prompt
 
-Create a high-level site map and wireframes for the Brain Loop application based on the PRD. Focus on the "Distraction-Free" Dashboard and the "Chat Augmenté" interface. Ensure the "Energy Bar" is visible but not intrusive.
+Create a high-level site map and wireframes for the Echoflow application based on the PRD. Focus on the "Distraction-Free" Dashboard and the "Chat Augmenté" interface. Ensure the "Energy Bar" is visible but not intrusive.
 
 ### Architect Prompt
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-	title: "Learn More — Brain Loop",
+	title: "Learn More — Echoflow",
 };
 
 export default function LearnMorePage() {
@@ -9,7 +9,7 @@ export default function LearnMorePage() {
 		<main className="min-h-screen  pb-8 bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
             <header className="flex items-center px-8 sm:px-16 md:px-32 bg-gradient-to-b dark:from-gray-900/10 dark:to-gray-800/10 backdrop-blur-lg border-b border-gray-700/50 justify-between mb-8 sticky top-0 py-4">
 					<h1 className="text-2xl font-bold text-primary cursor-pointer">
-						Brain Loop
+						Echoflow
 					</h1>
 					<nav className="space-x-6">
 						<Link

@@ -5,7 +5,7 @@ export default function HomePage() {
 		<main className="flex min-h-screen flex-col items-center justify-center p-8 md:p-24 bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
 			<div className="text-center max-w-4xl">
 				<h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r dark:from-primary to-primary-900 bg-clip-text text-transparent">
-					Brain Loop
+					Echoflow
 				</h1>
 
 				<p className="text-xl md:text-2xl text-gray-400 mb-4">

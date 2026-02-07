@@ -1,5 +1,5 @@
 -- =============================================
--- Brain Loop - Index Optimization
+-- Echoflow - Index Optimization
 -- =============================================
 -- Migration: 20260201000004_optimize_indexes.sql
 -- Author: Winston (Architect)

@@ -1,4 +1,4 @@
-# Brain Loop - GitHub Copilot CLI Instructions
+# Echoflow - GitHub Copilot CLI Instructions
 
 This file contains project-specific instructions for GitHub Copilot CLI to ensure consistency and quality throughout development.
 

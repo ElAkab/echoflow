@@ -172,7 +172,7 @@ Format: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I..
 
 ## 📝 Step 3: Create .env.local
 
-Create file at project root: `/home/adam5/dev/projects/brain-loop/.env.local`
+Create file at project root: `/home/adam5/dev/projects/echoflow/.env.local`
 
 ```bash
 # Supabase Configuration
@@ -279,7 +279,7 @@ RESET ROLE;
 
 1. Go to Authentication → Users
 2. Click "Add user" → "Create new user"
-3. Email: `test@brainloop.dev`
+3. Email: `test@echoflow.dev`
 4. Password: `TestPassword123!`
 5. Click "Create user"
 
@@ -294,13 +294,13 @@ SELECT
   hint_credits,
   created_at
 FROM profiles
-WHERE email = 'test@brainloop.dev';
+WHERE email = 'test@echoflow.dev';
 ```
 
 **Expected Result:**
 ```
 id: <uuid>
-email: test@brainloop.dev
+email: test@echoflow.dev
 subscription_tier: FREE
 hint_credits: 0
 created_at: 2026-02-01 18:xx:xx

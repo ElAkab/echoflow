@@ -99,7 +99,7 @@ async function callOpenRouter(
 					"Content-Type": "application/json",
 					"HTTP-Referer":
 						process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-					"X-Title": "Brain Loop",
+					"X-Title": "Echoflow",
 				},
 				body: JSON.stringify({
 					model,
@@ -341,7 +341,7 @@ ${previousInsightsBlock}
 							"Content-Type": "application/json",
 							"HTTP-Referer":
 								process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-							"X-Title": "Brain Loop",
+							"X-Title": "Echoflow",
 						},
 						body: JSON.stringify({
 							model,

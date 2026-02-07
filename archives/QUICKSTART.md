@@ -43,7 +43,7 @@ You'll see two keys:
 
 ## Step 2: Create .env.local File
 
-In your project root (`/home/adam5/dev/projects/brain-loop/`), create file `.env.local`:
+In your project root (`/home/adam5/dev/projects/echoflow/`), create file `.env.local`:
 
 ```bash
 # Supabase Configuration

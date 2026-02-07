@@ -246,7 +246,7 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 							"Content-Type": "application/json",
 							"HTTP-Referer":
 								process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-							"X-Title": "Brain Loop",
+							"X-Title": "Echoflow",
 						},
 						body: JSON.stringify({
 							model,

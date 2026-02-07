@@ -1,10 +1,10 @@
 -- =============================================
--- Brain Loop - Initial Database Schema
+-- Echoflow - Initial Database Schema
 -- =============================================
 -- Migration: 20260201000000_initial_schema.sql
 -- Author: Winston (Architect)
 -- Date: 2026-02-01
--- Description: Creates core tables for Brain Loop MVP
+-- Description: Creates core tables for Echoflow MVP
 -- =============================================
 
 -- Enable UUID extension

@@ -1,5 +1,5 @@
 -- =============================================
--- Brain Loop - Study Sessions Tracking
+-- Echoflow - Study Sessions Tracking
 -- =============================================
 -- Migration: 20260205000000_study_sessions.sql
 -- Author: Dev (BMade)

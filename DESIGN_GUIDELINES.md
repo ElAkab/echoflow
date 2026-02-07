@@ -1,4 +1,4 @@
-# Brain Loop - Design Guidelines
+# Echoflow - Design Guidelines
 
 ## Contexte
 

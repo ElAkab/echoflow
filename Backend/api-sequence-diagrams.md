@@ -1,4 +1,4 @@
-# Brain Loop - API Sequence Diagrams
+# Echoflow - API Sequence Diagrams
 
 **Author:** Winston (Architect)  
 **Date:** 2026-02-01  

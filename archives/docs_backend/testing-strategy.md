@@ -71,7 +71,7 @@ Since local Supabase requires Docker (which needs sudo), we have **3 alternative
 # 1. Go to https://supabase.com/dashboard
 # 2. Click "New Project"
 # 3. Fill in:
-#    - Name: brain-loop-dev
+#    - Name: echoflow-dev
 #    - Database Password: <generate strong password>
 #    - Region: us-east-1 (recommended)
 # 4. Wait ~2 minutes for provisioning

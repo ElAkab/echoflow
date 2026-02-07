@@ -97,7 +97,7 @@ export async function signInWithDemo(providedPassword: string) {
 	}
 
 	const { data, error } = await supabase.auth.signInWithPassword({
-		email: "demo@brainloop.app",
+		email: "demo@echoflow.app",
 		password: process.env.DEMO_ACCOUNT_PASSWORD || "",
 	});
 

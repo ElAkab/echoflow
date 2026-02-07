@@ -1,5 +1,5 @@
 -- =============================================
--- Brain Loop - Atomic Hint Credits
+-- Echoflow - Atomic Hint Credits
 -- =============================================
 -- Migration: 20260201000003_atomic_hint_credits.sql
 -- Author: Winston (Architect)

@@ -1,6 +1,6 @@
 # GitHub Copilot CLI - Features Showcase
 
-This document catalogs all GitHub Copilot CLI features utilized during the development of Brain Loop, demonstrating the tool's capabilities for the community challenge.
+This document catalogs all GitHub Copilot CLI features utilized during the development of Echoflow, demonstrating the tool's capabilities for the community challenge.
 
 ---
 
@@ -472,7 +472,7 @@ git commit -m "feat(auth): implement Google OAuth with Supabase
 
 **Planned Use Cases**:
 ```bash
-pnpm create next-app@latest brain-loop --typescript --tailwind --app
+pnpm create next-app@latest echoflow --typescript --tailwind --app
 pnpm add @supabase/supabase-js @supabase/auth-helpers-nextjs
 pnpm add -D @playwright/test
 pnpm add zustand react-hook-form zod

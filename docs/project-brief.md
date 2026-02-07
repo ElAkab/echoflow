@@ -1,4 +1,4 @@
-# Brief de Projet : Brain Loop (Interface d'Auto-Interrogation IA)
+# Brief de Projet : Echoflow (Interface d'Auto-Interrogation IA)
 
 ## 1. Résumé Exécutif
 

@@ -6,7 +6,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import "../globals.css";
 
 export const metadata: Metadata = {
-	title: "Dashboard - Brain Loop",
+	title: "Dashboard - Echoflow",
 	description: "Manage your learning with AI-powered active recall",
 };
 

@@ -1,5 +1,5 @@
 -- =============================================
--- Brain Loop - Row Level Security Policies  
+-- Echoflow - Row Level Security Policies  
 -- =============================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;

@@ -1,4 +1,4 @@
-# Brain Loop - Architecture Critical Review
+# Echoflow - Architecture Critical Review
 
 **Architect:** Winston  
 **Date:** 2026-02-01  

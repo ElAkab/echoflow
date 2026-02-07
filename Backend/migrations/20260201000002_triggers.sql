@@ -1,5 +1,5 @@
 -- =============================================
--- Brain Loop - Triggers & Functions
+-- Echoflow - Triggers & Functions
 -- =============================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS \$\$
