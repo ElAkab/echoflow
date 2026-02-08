@@ -549,6 +549,9 @@ export function QuestionGenerator({
 										Send
 									</Button>
 								</div>
+								<span className="text-sm text-muted-foreground text-center block">
+									Don't trust the AI completely.
+								</span>
 							</div>
 						</>
 					)}
