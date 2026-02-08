@@ -28,12 +28,15 @@ Echoflow helps students and lifelong learners solidify concepts by turning passi
 Echoflow addresses a common learning problem: **we take notes, but rarely review them effectively.**
 
 ### The Problem
+
 - Students create detailed notes but struggle to retain information
 - Traditional review methods are passive and ineffective
 - No personalized feedback on knowledge gaps
 
 ### The Solution
+
 Echoflow uses AI to:
+
 - Generate contextual questions based on your notes
 - Engage you in conversational learning sessions
 - Track your progress and identify weak areas
@@ -44,6 +47,7 @@ Echoflow uses AI to:
 ## ✨ Key Features
 
 ### Core Functionality (MVP)
+
 - **📝 Note Management**: Organize notes by category with Markdown support
 - **🤖 AI Questioning**: Get quizzed on individual or multiple notes
 - **💬 Conversational Learning**: Chat with AI to deepen understanding
@@ -51,6 +55,7 @@ Echoflow uses AI to:
 - **🎨 Beautiful UI**: Clean, modern interface with TailwindCSS 4.0
 
 ### Advanced Features
+
 - **Multi-note Context**: Quiz across related topics for better retention
 - **Adaptive Difficulty**: AI adjusts based on your responses
 - **Study Analytics**: Visualize learning patterns and weak points
@@ -61,6 +66,7 @@ Echoflow uses AI to:
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript (strict mode)
 - **Styling**: TailwindCSS 4.0 + shadcn/ui
@@ -68,12 +74,14 @@ Echoflow uses AI to:
 - **Markdown**: react-markdown + remark-gfm
 
 ### Backend
+
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth (Google OAuth + Magic Links)
 - **AI Gateway**: OpenRouter (with model rotation for free tier)
 - **API**: Next.js API Routes (BFF pattern)
 
 ### Infrastructure
+
 - **Hosting**: Vercel
 - **Package Manager**: pnpm
 - **Version Control**: Git + GitHub
@@ -128,20 +136,20 @@ study_sessions
 
 ```typescript
 const FREE_MODELS = [
-  "deepseek/deepseek-chat",
-  "qwen/qwen-2.5-72b-instruct",
-  "meta-llama/llama-3.1-8b-instruct:free"
+	"deepseek/deepseek-chat",
+	"qwen/qwen-2.5-72b-instruct",
+	"meta-llama/llama-3.1-8b-instruct:free",
 ];
 
 // Fallback logic: try each model until success
 for (const model of FREE_MODELS) {
-  try {
-    const response = await callOpenRouter(model, prompt);
-    return response;
-  } catch (error) {
-    if (isRateLimitError(error)) continue;
-    throw error;
-  }
+	try {
+		const response = await callOpenRouter(model, prompt);
+		return response;
+	} catch (error) {
+		if (isRateLimitError(error)) continue;
+		throw error;
+	}
 }
 ```
 
@@ -150,6 +158,7 @@ for (const model of FREE_MODELS) {
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 20.x+
 - pnpm 9.x+
 - Supabase account
@@ -158,23 +167,27 @@ for (const model of FREE_MODELS) {
 ### Installation
 
 1. **Clone the repository**
+
 ```bash
 git clone https://github.com/ElAkab/echoflow.git
 cd echoflow
 ```
 
 2. **Install dependencies**
+
 ```bash
 cd Frontend
 pnpm install
 ```
 
 3. **Set up environment variables**
+
 ```bash
 cp .env.example .env.local
 ```
 
 Edit `.env.local`:
+
 ```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -189,10 +202,12 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 4. **Run database migrations**
+
 - Go to Supabase Dashboard → SQL Editor
 - Execute files in `/Backend/migrations/` in order
 
 5. **Start development server**
+
 ```bash
 pnpm dev
 ```
@@ -204,6 +219,7 @@ Visit [http://localhost:3000](http://localhost:3000)
 ## 💻 Development
 
 ### Project Structure
+
 ```
 echoflow/
 ├── Frontend/
@@ -229,11 +245,13 @@ echoflow/
 ### Development Workflow
 
 1. **Create a feature branch**
+
 ```bash
 git checkout -b feature/your-feature
 ```
 
 2. **Follow BMade methodology**
+
 - **Brief**: Define the feature clearly
 - **Model**: Design architecture/schema
 - **Act**: Implement with tests
@@ -241,6 +259,7 @@ git checkout -b feature/your-feature
 - **Evaluate**: Review and iterate
 
 3. **Commit conventions**
+
 ```
 feat(notes): add markdown preview
 fix(auth): resolve OAuth callback error
@@ -248,6 +267,7 @@ docs(readme): update installation steps
 ```
 
 4. **Run tests** (when available)
+
 ```bash
 pnpm test
 ```
@@ -259,19 +279,23 @@ pnpm test
 ### Vercel (Recommended)
 
 1. **Push to GitHub**
+
 ```bash
 git push origin main
 ```
 
 2. **Import project in Vercel**
+
 - Root Directory: `Frontend`
 - Build Command: `pnpm build`
 - Install Command: `pnpm install`
 
 3. **Configure environment variables**
+
 - Add all `.env.local` variables to Vercel dashboard
 
 4. **Deploy**
+
 - Automatic deployments on push to `main`
 
 ### Database (Supabase)
@@ -285,6 +309,7 @@ git push origin main
 ## 🗺️ Roadmap
 
 ### Phase 1: MVP ✅
+
 - [x] User authentication (Google OAuth + Magic Link)
 - [x] Note CRUD with categories
 - [x] Single-note AI questioning
@@ -293,12 +318,14 @@ git push origin main
 - [x] Study session tracking
 
 ### Phase 2: Analytics 🚧
+
 - [ ] Dashboard with progress charts
 - [ ] Performance insights per category
 - [ ] Weak area identification
 - [ ] Study streak tracking
 
 ### Phase 3: Premium Features
+
 - [ ] Unlimited AI interactions
 - [ ] Advanced analytics
 - [ ] Conversation history access
@@ -306,6 +333,7 @@ git push origin main
 - [ ] Spaced repetition algorithm
 
 ### Phase 4: Collaboration
+
 - [ ] Share notes with peers
 - [ ] Group study sessions
 - [ ] Public note library
@@ -322,6 +350,7 @@ Contributions are welcome! Please follow these guidelines:
 4. Submit a pull request
 
 ### Code Style
+
 - Use TypeScript strict mode
 - Follow existing code patterns
 - Add comments for complex logic only
@@ -348,9 +377,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📬 Contact
 
 **Adam El Akab**
+
 - GitHub: [@ElAkab](https://github.com/ElAkab)
 - Project Link: [https://github.com/ElAkab/echoflow](https://github.com/ElAkab/echoflow)
-- Live Demo: [https://echoflow.vercel.app](https://echoflow.vercel.app)
+- Live Demo: [https://echoflow.vercel.app](https://echoflow-phi.vercel.app)
 
 ---
 
