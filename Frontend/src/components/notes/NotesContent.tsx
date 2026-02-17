@@ -10,6 +10,7 @@ import {
 	Sparkles,
 	CheckSquare,
 	Square,
+	MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,12 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Select,
 	SelectContent,
@@ -169,9 +176,9 @@ export function NotesContent({
 	return (
 		<div className="space-y-6">
 			{/* Header */}
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 				<div>
-					<h1 className="text-3xl font-bold">Your Notes</h1>
+					<h1 className="text-2xl sm:text-3xl font-bold">Your Notes</h1>
 					<p className="text-muted-foreground mt-1">
 						{filteredNotes.length}{" "}
 						{filteredNotes.length === 1 ? "note" : "notes"}
@@ -425,6 +432,46 @@ export function NotesContent({
 									</div>
 								)}
 
+								{/* Mobile Menu Button (Top Right) */}
+								{!isSelectionMode && (
+									<div className="absolute top-3 right-3 z-10 sm:hidden">
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button
+													size="icon"
+													variant="ghost"
+													className="h-8 w-8 cursor-pointer bg-card/80 backdrop-blur-sm"
+													onClick={(e) => e.stopPropagation()}
+												>
+													<MoreVertical className="h-4 w-4" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-40">
+												<DropdownMenuItem
+													className="cursor-pointer"
+													onClick={(e) => {
+														e.stopPropagation();
+														openEditDialog(note);
+													}}
+												>
+													<Pencil className="mr-2 h-4 w-4" />
+													Edit
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													className="cursor-pointer text-destructive focus:text-destructive"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleDelete(note.id);
+													}}
+												>
+													<Trash2 className="mr-2 h-4 w-4" />
+													Delete
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
+								)}
+
 								{/* Content - clickable */}
 								<div
 									className={`flex-1 p-5 overflow-hidden ${!isSelectionMode ? "cursor-pointer" : ""}`}
@@ -462,7 +509,8 @@ export function NotesContent({
 									<div className="px-5 py-3 border-t border-border bg-card/50 flex items-center justify-between">
 										<QuestionGenerator noteId={note.id} variant="compact" />
 
-										<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+										{/* Desktop actions (hover) - hidden on mobile */}
+										<div className="hidden sm:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
 											<Button
 												size="icon"
 												variant="ghost"

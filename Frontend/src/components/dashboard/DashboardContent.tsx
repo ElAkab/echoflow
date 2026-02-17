@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, FolderOpen, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,12 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import CategoryForm from "@/components/CategoryForm";
 import DialogDescription from "../ui/dialog";
 
@@ -142,6 +148,45 @@ export function DashboardContent({
 										style={{ backgroundColor: category.color }}
 									/>
 
+									{/* Mobile Menu Button (Top Right) */}
+									<div className="absolute top-3 right-3 sm:hidden" onClick={(e) => e.preventDefault()}>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button
+													size="icon"
+													variant="ghost"
+													className="h-8 w-8 cursor-pointer"
+													onClick={(e) => e.stopPropagation()}
+												>
+													<MoreVertical className="h-4 w-4" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-40">
+												<DropdownMenuItem
+													className="cursor-pointer"
+													onClick={(e) => {
+														e.stopPropagation();
+														setEditingCategory(category);
+														setIsDialogOpen(true);
+													}}
+												>
+													<Pencil className="mr-2 h-4 w-4" />
+													Edit
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													className="cursor-pointer text-destructive focus:text-destructive"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleDelete(category.id);
+													}}
+												>
+													<Trash2 className="mr-2 h-4 w-4" />
+													Delete
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
+
 									{/* Content */}
 									<div className="flex flex-col h-full pt-2">
 										<div className="flex-1">
@@ -162,33 +207,72 @@ export function DashboardContent({
 												<span>{noteCount === 1 ? "note" : "notes"}</span>
 											</div>
 
-											{/* Actions */}
-											<div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-												<Button
-													size="icon"
-													variant="ghost"
-													className="h-8 w-8 cursor-pointer"
-													onClick={(e) => {
-														e.preventDefault();
+							{/* Actions - Desktop (hover) */}
+												<div className="hidden sm:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+													<Button
+														size="icon"
+														variant="ghost"
+														className="h-8 w-8 cursor-pointer"
+														onClick={(e) => {
+															e.preventDefault();
 
-														setEditingCategory(category);
-														setIsDialogOpen(true);
-													}}
-												>
-													<Pencil className="h-4 w-4" />
-												</Button>
-												<Button
-													size="icon"
-													variant="ghost"
-													className="h-8 w-8 text-destructive cursor-pointer	 hover:text-destructive"
-													onClick={(e) => {
-														e.preventDefault();
-														handleDelete(category.id);
-													}}
-												>
-													<Trash2 className="h-4 w-4" />
-												</Button>
-											</div>
+															setEditingCategory(category);
+															setIsDialogOpen(true);
+														}}
+													>
+														<Pencil className="h-4 w-4" />
+													</Button>
+													<Button
+														size="icon"
+														variant="ghost"
+														className="h-8 w-8 text-destructive cursor-pointer hover:text-destructive"
+														onClick={(e) => {
+															e.preventDefault();
+															handleDelete(category.id);
+														}}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+
+												{/* Actions - Mobile (dropdown) */}
+												<div className="sm:hidden" onClick={(e) => e.preventDefault()}>
+														<DropdownMenu>
+															<DropdownMenuTrigger asChild>
+																<Button
+																	size="icon"
+																	variant="ghost"
+																	className="h-8 w-8 cursor-pointer"
+																	onClick={(e) => e.stopPropagation()}
+																>
+																	<MoreVertical className="h-4 w-4" />
+																</Button>
+															</DropdownMenuTrigger>
+															<DropdownMenuContent align="end" className="w-40">
+																<DropdownMenuItem
+																	className="cursor-pointer"
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		setEditingCategory(category);
+																		setIsDialogOpen(true);
+																	}}
+																>
+																	<Pencil className="mr-2 h-4 w-4" />
+																	Edit
+																</DropdownMenuItem>
+																<DropdownMenuItem
+																	className="cursor-pointer text-destructive focus:text-destructive"
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		handleDelete(category.id);
+																	}}
+																>
+																	<Trash2 className="mr-2 h-4 w-4" />
+																	Delete
+																</DropdownMenuItem>
+															</DropdownMenuContent>
+														</DropdownMenu>
+													</div>
 										</div>
 									</div>
 								</div>
