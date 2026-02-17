@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-	apiVersion: "2024-12-18.acacia",
+	apiVersion: "2026-01-28.clover",
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -102,11 +102,5 @@ export async function POST(request: NextRequest) {
 	return NextResponse.json({ received: true });
 }
 
-/**
- * Configuration pour désactiver le body parser (Stripe a besoin du raw body)
- */
-export const config = {
-	api: {
-		bodyParser: false,
-	},
-};
+// Stripe needs the raw body - Next.js App Router handles this automatically
+// No special config needed for route handlers
