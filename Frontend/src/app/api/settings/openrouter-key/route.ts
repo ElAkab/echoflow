@@ -6,6 +6,7 @@ import {
 	encryptOpenRouterKey,
 	getKeyLast4,
 } from "@/lib/security/byok-crypto";
+import { auditLogServer, AuditAction } from "@/lib/security/audit";
 import { createClient } from "@/lib/supabase/server";
 
 const saveSchema = z.object({
@@ -109,6 +110,15 @@ export async function PUT(request: NextRequest) {
 	}
 	const keyLast4 = getKeyLast4(apiKey);
 
+	// Vérifier si c'est une création ou une mise à jour
+	const { data: existingKey } = await supabase
+		.from("user_ai_keys")
+		.select("user_id")
+		.eq("user_id", user.id)
+		.maybeSingle();
+
+	const isUpdate = !!existingKey;
+
 	const { data, error } = await supabase
 		.from("user_ai_keys")
 		.upsert(
@@ -130,6 +140,18 @@ export async function PUT(request: NextRequest) {
 		);
 	}
 
+	// AUDIT LOG: Création ou mise à jour de clé BYOK
+	await auditLogServer({
+		action: isUpdate ? AuditAction.BYOK_KEY_UPDATED : AuditAction.BYOK_KEY_CREATED,
+		resourceType: 'AI_KEY',
+		request,
+		metadata: {
+			key_last4: keyLast4,
+			method: isUpdate ? 'update' : 'create',
+			status: 'success',
+		},
+	});
+
 	return NextResponse.json(
 		{
 			hasKey: true,
@@ -146,6 +168,13 @@ export async function DELETE(request: NextRequest) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
+	// Récupérer les infos avant suppression pour l'audit
+	const { data: existingKey } = await supabase
+		.from("user_ai_keys")
+		.select("key_last4")
+		.eq("user_id", user.id)
+		.maybeSingle();
+
 	const { error } = await supabase
 		.from("user_ai_keys")
 		.delete()
@@ -158,6 +187,17 @@ export async function DELETE(request: NextRequest) {
 			{ status: 500 },
 		);
 	}
+
+	// AUDIT LOG: Suppression de clé BYOK
+	await auditLogServer({
+		action: AuditAction.BYOK_KEY_DELETED,
+		resourceType: 'AI_KEY',
+		request,
+		metadata: {
+			key_last4: existingKey?.key_last4 || 'unknown',
+			status: 'success',
+		},
+	});
 
 	return NextResponse.json({ hasKey: false }, { status: 200 });
 }
@@ -233,15 +273,52 @@ export async function POST(request: NextRequest) {
 			const message =
 				(errorPayload as { error?: { message?: string } } | null)?.error
 					?.message || "Key test failed against OpenRouter.";
+			
+			// AUDIT LOG: Test de clé échoué
+			await auditLogServer({
+				action: AuditAction.BYOK_KEY_TESTED,
+				resourceType: 'AI_KEY',
+				request,
+				metadata: {
+					status: 'failure',
+					openrouter_status: response.status,
+					error_message: message,
+				},
+			});
+			
 			return NextResponse.json(
 				{ valid: false, error: message },
 				{ status: response.status },
 			);
 		}
 
+		// AUDIT LOG: Test de clé réussi
+		await auditLogServer({
+			action: AuditAction.BYOK_KEY_TESTED,
+			resourceType: 'AI_KEY',
+			request,
+			metadata: {
+				status: 'success',
+				openrouter_status: response.status,
+			},
+		});
+
 		return NextResponse.json({ valid: true }, { status: 200 });
 	} catch (error) {
 		console.error("OpenRouter key test failed:", error);
+		
+		// AUDIT LOG: Test de clé échoué (erreur réseau)
+		await auditLogServer({
+			action: AuditAction.BYOK_KEY_TESTED,
+			resourceType: 'AI_KEY',
+			request,
+			metadata: {
+				status: 'failure',
+				error_type: 'network_error',
+				error_message: error instanceof Error ? error.message : 'Unknown error',
+			},
+		});
+		
 		return NextResponse.json(
 			{
 				valid: false,
