@@ -19,33 +19,32 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function hasCredits(userId: string): Promise<boolean> {
 	const supabase = await createClient();
-	
+
 	// 1. Vérifier si l'utilisateur a BYOK
 	const { data: byokKey } = await supabase
 		.from("user_ai_keys")
 		.select("id")
 		.eq("user_id", userId)
 		.maybeSingle();
-	
+
 	if (byokKey) {
 		return true; // BYOK = accès illimité
 	}
-	
+
 	// 2. Vérifier les crédits achetés
 	const { data: credits } = await supabase
 		.from("user_credits")
 		.select("balance")
 		.eq("user_id", userId)
 		.maybeSingle();
-	
+
 	if (credits && credits.balance > 0) {
 		return true;
 	}
-	
+
 	// 3. Vérifier le quota gratuit journalier
-	// TODO: Implémenter le quota journalier dans usage_logs
-	// Pour l'instant, on laisse passer (retro-compatibilité)
-	return true;
+	const hasFree = await hasFreeQuota(userId);
+	return hasFree;
 }
 
 /**
@@ -71,44 +70,76 @@ export async function consumeCredit(userId: string): Promise<{
 	success: boolean;
 	balance: number;
 	message: string;
+	source: "byok" | "credits" | "free_quota";
 }> {
 	const supabase = await createClient();
-	
+
 	// Vérifier BYOK d'abord
 	const { data: byokKey } = await supabase
 		.from("user_ai_keys")
 		.select("id")
 		.eq("user_id", userId)
 		.maybeSingle();
-	
+
 	// BYOK = pas de consommation de crédits
 	if (byokKey) {
 		return {
 			success: true,
 			balance: -1, // Illimité
 			message: "Using BYOK - no credits consumed",
+			source: "byok",
 		};
 	}
-	
-	// Appeler la fonction RPC pour consommer
-	const { data, error } = await supabase.rpc("consume_credit", {
-		p_user_id: userId,
-	});
-	
-	if (error) {
-		console.error("Error consuming credit:", error);
+
+	// Vérifier si l'utilisateur a des crédits achetés
+	const { data: credits } = await supabase
+		.from("user_credits")
+		.select("balance")
+		.eq("user_id", userId)
+		.maybeSingle();
+
+	// Si crédits achetés disponibles, les consommer
+	if (credits && credits.balance > 0) {
+		const { data, error } = await supabase.rpc("consume_credit", {
+			p_user_id: userId,
+		});
+
+		if (error) {
+			console.error("Error consuming credit:", error);
+			return {
+				success: false,
+				balance: credits.balance,
+				message: error.message,
+				source: "credits",
+			};
+		}
+
+		const result = data?.[0] || data;
 		return {
-			success: false,
-			balance: 0,
-			message: error.message,
+			success: result?.success || false,
+			balance: result?.new_balance || 0,
+			message: result?.message || "Credit consumed",
+			source: "credits",
 		};
 	}
-	
-	const result = data?.[0] || data;
+
+	// Sinon, utiliser le quota gratuit
+	const remainingFree = await getRemainingFreeQuota(userId);
+	if (remainingFree > 0) {
+		return {
+			success: true,
+			balance: remainingFree - 1,
+			message: `Using free quota - ${remainingFree - 1} remaining today`,
+			source: "free_quota",
+		};
+	}
+
+	// Aucun crédit disponible
 	return {
-		success: result?.success || false,
-		balance: result?.new_balance || 0,
-		message: result?.message || "Unknown error",
+		success: false,
+		balance: 0,
+		message: "No credits available",
+		source: "credits",
 	};
 }
 
@@ -126,4 +157,48 @@ export function formatCredits(balance: number): string {
 		return `${Math.floor(balance / 1000)}k+`;
 	}
 	return balance.toString();
+}
+
+const DAILY_FREE_QUOTA = 20; // 20 questions gratuites par jour
+
+/**
+ * Obtient le nombre de questions utilisées aujourd'hui
+ * Pour le quota gratuit journalier
+ */
+export async function getDailyUsage(userId: string): Promise<number> {
+	const supabase = await createClient();
+	
+	// Compter les usage_logs de type QUIZ aujourd'hui
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+	
+	const { count, error } = await supabase
+		.from("usage_logs")
+		.select("*", { count: "exact", head: true })
+		.eq("user_id", userId)
+		.eq("action_type", "QUIZ")
+		.gte("created_at", today.toISOString());
+	
+	if (error) {
+		console.error("Error getting daily usage:", error);
+		return 0;
+	}
+	
+	return count || 0;
+}
+
+/**
+ * Vérifie si l'utilisateur a encore des questions gratuites disponibles aujourd'hui
+ */
+export async function hasFreeQuota(userId: string): Promise<boolean> {
+	const dailyUsage = await getDailyUsage(userId);
+	return dailyUsage < DAILY_FREE_QUOTA;
+}
+
+/**
+ * Obtient le nombre de questions gratuites restantes aujourd'hui
+ */
+export async function getRemainingFreeQuota(userId: string): Promise<number> {
+	const dailyUsage = await getDailyUsage(userId);
+	return Math.max(0, DAILY_FREE_QUOTA - dailyUsage);
 }

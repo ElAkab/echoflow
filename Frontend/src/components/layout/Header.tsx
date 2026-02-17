@@ -2,7 +2,6 @@
 
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
 	Sheet,
 	SheetContent,
@@ -11,6 +10,7 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 import { MobileNav } from "./MobileNav";
+import { CreditDisplay } from "@/components/credits/CreditDisplay";
 
 export function Header() {
 	return (
@@ -49,11 +49,8 @@ export function Header() {
 				{/* Spacer (Desktop) */}
 				<div className="hidden md:flex md:flex-1" />
 
-				{/* Quota Badge */}
-				{/* <Badge variant="secondary" className="gap-2">
-					<span className="text-xs font-mono">3/3</span>
-					<span className="text-xs">hints remaining</span>
-				</Badge> */}
+				{/* Credit Balance */}
+				<CreditDisplay />
 			</div>
 		</header>
 	);

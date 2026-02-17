@@ -8,6 +8,7 @@ import {
 } from "@/app/api/ai/_utils/openrouter-routing";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { hasCredits, consumeCredit, getDailyUsage } from "@/lib/credits";
 
 type IncomingChatMessage = {
 	role: "user" | "assistant";
@@ -56,6 +57,33 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json(
 				{ error: "Note ID is required" },
 				{ status: 400 },
+			);
+		}
+
+		// Vérifier les crédits (BYOK = gratuit, crédits achetés, ou quota gratuit)
+		const hasAvailableCredits = await hasCredits(user.id);
+		if (!hasAvailableCredits) {
+			return NextResponse.json(
+				{
+					error: "Crédits insuffisants",
+					code: "credits_exhausted",
+					message: "Vous n'avez plus de crédits. Achetez des Study Questions ou utilisez votre propre clé OpenRouter.",
+				},
+				{ status: 403 },
+			);
+		}
+
+		// Consommer un crédit (si pas BYOK)
+		const consumptionResult = await consumeCredit(user.id);
+		if (!consumptionResult.success && consumptionResult.balance !== -1) {
+			// -1 = BYOK (pas de consommation)
+			return NextResponse.json(
+				{
+					error: "Échec de la consommation de crédits",
+					code: "consumption_failed",
+					message: consumptionResult.message,
+				},
+				{ status: 500 },
 			);
 		}
 
