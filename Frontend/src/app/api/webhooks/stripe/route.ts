@@ -67,6 +67,11 @@ export async function POST(request: NextRequest) {
 
 					const creditAmount = parseInt(credits, 10);
 					
+					// Initialize user if not exists, then add credits
+					await supabase.rpc("initialize_user_credits", {
+						p_user_id: userId,
+					});
+					
 					// Add credits
 					const { data, error } = await supabase.rpc("add_credits", {
 						p_user_id: userId,
@@ -99,53 +104,94 @@ export async function POST(request: NextRequest) {
 				break;
 			}
 
-			// Subscription created
+			// Subscription created (initial signup)
 			case "customer.subscription.created": {
 				const subscription = event.data.object as Stripe.Subscription;
-				await handleSubscriptionUpdate(supabase, subscription);
 				
-				// Send welcome email
-				const userId = await getUserIdFromCustomer(supabase, subscription.customer as string);
+				// Get user ID from metadata or lookup
+				const userId = subscription.metadata?.user_id || 
+					await getUserIdFromCustomer(supabase, subscription.customer as string);
+				
 				if (userId) {
+					// Initialize user credits if not exists
+					await supabase.rpc("initialize_user_credits", { p_user_id: userId });
+					
+					// Handle subscription payment (this resets credits if active)
+					await supabase.rpc("handle_subscription_payment", {
+						p_user_id: userId,
+						p_stripe_customer_id: subscription.customer as string,
+						p_stripe_subscription_id: subscription.id,
+						p_status: subscription.status === "active" ? "active" : "inactive",
+						p_current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
+					});
+					
+					// Send welcome email
 					await sendEmail(userId, "subscription_created", {});
+					console.log(`Subscription created for user ${userId}`);
 				}
 				break;
 			}
 
-			// Subscription updated (renewal, plan change)
+			// Subscription updated
 			case "customer.subscription.updated": {
 				const subscription = event.data.object as Stripe.Subscription;
-				await handleSubscriptionUpdate(supabase, subscription);
+				const userId = await getUserIdFromCustomer(supabase, subscription.customer as string);
+				
+				if (userId) {
+					await supabase.rpc("handle_subscription_payment", {
+						p_user_id: userId,
+						p_stripe_customer_id: subscription.customer as string,
+						p_stripe_subscription_id: subscription.id,
+						p_status: subscription.status === "active" ? "active" : 
+						         subscription.status === "canceled" ? "canceled" : "inactive",
+						p_current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
+					});
+					console.log(`Subscription updated for user ${userId}: ${subscription.status}`);
+				}
 				break;
 			}
 
 			// Subscription deleted (cancellation)
 			case "customer.subscription.deleted": {
 				const subscription = event.data.object as Stripe.Subscription;
-				await handleSubscriptionCancellation(supabase, subscription);
-				
-				// Send cancellation email
 				const userId = await getUserIdFromCustomer(supabase, subscription.customer as string);
+				
 				if (userId) {
+					await supabase.rpc("update_subscription", {
+						p_user_id: userId,
+						p_stripe_customer_id: subscription.customer as string,
+						p_stripe_subscription_id: null,
+						p_status: "canceled",
+						p_current_period_end: null,
+					});
+					
+					// Send cancellation email
 					await sendEmail(userId, "subscription_cancelled", {});
+					console.log(`Subscription canceled for user ${userId}`);
 				}
 				break;
 			}
 
-			// Successful payment (for invoices)
+			// Successful payment (for subscriptions - renewals)
 			case "invoice.payment_succeeded": {
 				const invoice = event.data.object as Stripe.Invoice;
 				const subscriptionId = (invoice as any).subscription;
-				if (subscriptionId) {
-					console.log(`Payment succeeded for subscription: ${subscriptionId}`);
-					
-					// Send receipt email
+				
+				if (subscriptionId && invoice.billing_reason === "subscription_cycle") {
+					// This is a renewal payment - recharge credits!
 					const userId = await getUserIdFromCustomer(supabase, invoice.customer as string);
+					
 					if (userId) {
+						// Reset monthly credits for renewal
+						await supabase.rpc("reset_monthly_credits_for_user", { p_user_id: userId });
+						
+						// Send receipt email
 						await sendEmail(userId, "payment_succeeded", {
 							amount: invoice.amount_paid,
 							invoice_url: invoice.hosted_invoice_url,
 						});
+						
+						console.log(`Monthly credits recharged for user ${userId}`);
 					}
 				}
 				break;
@@ -155,11 +201,10 @@ export async function POST(request: NextRequest) {
 			case "invoice.payment_failed": {
 				const invoice = event.data.object as Stripe.Invoice;
 				const subscriptionId = (invoice as any).subscription;
+				
 				if (subscriptionId) {
-					console.error(`Payment failed for subscription: ${subscriptionId}`);
-					
-					// Update subscription status to past_due
 					const userId = await getUserIdFromCustomer(supabase, invoice.customer as string);
+					
 					if (userId) {
 						await supabase.rpc("update_subscription", {
 							p_user_id: userId,
@@ -178,14 +223,6 @@ export async function POST(request: NextRequest) {
 				break;
 			}
 
-			// Refund handling
-			case "charge.refunded": {
-				const charge = event.data.object as Stripe.Charge;
-				console.log(`Charge refunded: ${charge.id}`);
-				// Could implement credit rollback here if needed
-				break;
-			}
-
 			default:
 				console.log(`Unhandled event type: ${event.type}`);
 		}
@@ -193,15 +230,6 @@ export async function POST(request: NextRequest) {
 		// Mark event as processed
 		processedEvents.add(event.id);
 		
-		// Cleanup old events (keep last 1000)
-		if (processedEvents.size > 1000) {
-			const iterator = processedEvents.values();
-			for (let i = 0; i < 100; i++) {
-				const oldEvent = iterator.next().value;
-				if (oldEvent) processedEvents.delete(oldEvent);
-			}
-		}
-
 		return NextResponse.json({ received: true, success: true });
 	} catch (error) {
 		console.error("Error processing webhook:", error);
@@ -212,66 +240,6 @@ export async function POST(request: NextRequest) {
 	}
 }
 
-async function handleSubscriptionUpdate(
-	supabase: any,
-	subscription: Stripe.Subscription
-) {
-	const customerId = subscription.customer as string;
-	const userId = await getUserIdFromCustomer(supabase, customerId);
-
-	if (!userId) {
-		console.error("No user found for customer:", customerId);
-		return;
-	}
-
-	const status = subscription.status === "active" ? "active" : 
-		subscription.status === "canceled" ? "canceled" : 
-		subscription.status === "past_due" ? "past_due" : "inactive";
-
-	const { error } = await supabase.rpc("update_subscription", {
-		p_user_id: userId,
-		p_stripe_customer_id: customerId,
-		p_stripe_subscription_id: subscription.id,
-		p_status: status,
-		p_current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
-	});
-
-	if (error) {
-		console.error("Error updating subscription:", error);
-		throw error;
-	}
-
-	console.log(`Updated subscription for user ${userId}: ${status}`);
-}
-
-async function handleSubscriptionCancellation(
-	supabase: any,
-	subscription: Stripe.Subscription
-) {
-	const customerId = subscription.customer as string;
-	const userId = await getUserIdFromCustomer(supabase, customerId);
-
-	if (!userId) {
-		console.error("No user found for customer:", customerId);
-		return;
-	}
-
-	const { error } = await supabase.rpc("update_subscription", {
-		p_user_id: userId,
-		p_stripe_customer_id: customerId,
-		p_stripe_subscription_id: null,
-		p_status: "canceled",
-		p_current_period_end: null,
-	});
-
-	if (error) {
-		console.error("Error canceling subscription:", error);
-		throw error;
-	}
-
-	console.log(`Canceled subscription for user ${userId}`);
-}
-
 async function getUserIdFromCustomer(
 	supabase: any,
 	customerId: string
@@ -280,7 +248,7 @@ async function getUserIdFromCustomer(
 		.from("user_credits")
 		.select("user_id")
 		.eq("stripe_customer_id", customerId)
-		.single();
+		.maybeSingle();
 
 	if (error || !data) {
 		return null;
@@ -305,7 +273,7 @@ async function sendEmail(
 		.from("profiles")
 		.select("email, full_name")
 		.eq("id", userId)
-		.single();
+		.maybeSingle();
 
 	if (!profile?.email) {
 		console.error("No email found for user:", userId);
