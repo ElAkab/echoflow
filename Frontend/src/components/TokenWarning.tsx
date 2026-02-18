@@ -112,30 +112,28 @@ export function TokenWarning({
 
 	if (variant === "inline") {
 		return (
-			<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-				<div className="flex items-center gap-2 w-full sm:w-auto">
-					<Icon className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-					<div className="flex-1 sm:hidden">
+			<div className="flex flex-col gap-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+				{/* Header avec icône et titre */}
+				<div className="flex items-start gap-3">
+					<Icon className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+					<div className="flex-1 min-w-0">
 						<p className="text-sm font-medium text-yellow-500">
 							{errorConfig.title}
 						</p>
+						<p className="text-xs text-muted-foreground mt-1">
+							{customMessage || errorConfig.description}
+						</p>
 					</div>
 				</div>
-				<div className="flex-1">
-					<p className="text-sm font-medium text-yellow-500 hidden sm:block">
-						{errorConfig.title}
-					</p>
-					<p className="text-xs text-muted-foreground mt-1">
-						{customMessage || errorConfig.description}
-					</p>
-				</div>
-				<div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+				
+				{/* Boutons en grille responsive */}
+				<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={handleRetryLater}
 						disabled={isRetrying}
-						className="w-full sm:w-auto"
+						className="w-full"
 					>
 						{isRetrying ? (
 							<Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -148,7 +146,7 @@ export function TokenWarning({
 						size="sm"
 						onClick={handleUpgradeToPremium}
 						disabled={isNavigating === "premium"}
-						className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+						className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
 					>
 						{isNavigating === "premium" ? (
 							<Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -162,14 +160,14 @@ export function TokenWarning({
 						variant="secondary"
 						onClick={handleOpenApiKeySettings}
 						disabled={isNavigating === "apikey"}
-						className="w-full sm:w-auto"
+						className="w-full"
 					>
 						{isNavigating === "apikey" ? (
 							<Loader2 className="h-4 w-4 mr-2 animate-spin" />
 						) : (
 							<KeyRound className="h-4 w-4 mr-2" />
 						)}
-						Key
+						API Key
 					</Button>
 				</div>
 			</div>

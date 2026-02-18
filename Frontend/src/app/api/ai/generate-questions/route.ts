@@ -175,6 +175,9 @@ ${previousConclusion ? `\n\nPrevious Session Insight (use ONLY as context, do NO
 				code: aiResult.code,
 				error: aiResult.error,
 				userId: user.id,
+				hasCredits: creditCheck.hasCredits,
+				canUsePremium: creditCheck.canUsePremium,
+				source: creditCheck.source,
 			});
 			
 			return NextResponse.json(

@@ -289,20 +289,15 @@ export async function routeOpenRouterRequest(
 	
 	// Check if user has premium access
 	const canUsePremium = await canUsePremiumModels(options.userId);
-	const preferPremium = options.preferPremium !== false; // Default to true
+	const preferPremium = options.preferPremium !== false;
 	
-	// Determine which models to try
-	let modelsToTry: string[];
-	if (byokState.apiKey) {
-		// BYOK users can use any model
-		modelsToTry = [...PREMIUM_MODELS, ...FALLBACK_MODELS];
-	} else if (canUsePremium && preferPremium) {
-		// Premium users get premium models first, then fallback
-		modelsToTry = [...PREMIUM_MODELS, ...FALLBACK_MODELS];
-	} else {
-		// Free users only get fallback models
-		modelsToTry = [...FALLBACK_MODELS];
-	}
+	console.log("[OpenRouter Routing]", {
+		userId: options.userId,
+		canUsePremium,
+		preferPremium,
+		hasByok: !!byokState.apiKey,
+		hasPlatformKey: !!platformResolution.key,
+	});
 
 	// Build key candidates
 	const keyCandidates: KeyCandidate[] = [];
@@ -316,6 +311,7 @@ export async function routeOpenRouterRequest(
 	}
 
 	if (keyCandidates.length === 0) {
+		console.error("[OpenRouter] No API keys available");
 		return {
 			ok: false,
 			status: 503,
@@ -324,22 +320,41 @@ export async function routeOpenRouterRequest(
 		};
 	}
 
+	// Determine models to try based on access level
+	let modelsToTry: string[];
+	let usingPremiumModels = false;
+	
+	if (byokState.apiKey) {
+		// BYOK users can use any model
+		modelsToTry = [...PREMIUM_MODELS, ...FALLBACK_MODELS];
+		usingPremiumModels = true;
+	} else if (canUsePremium && preferPremium) {
+		// Premium users: try premium first, then fallback
+		modelsToTry = [...PREMIUM_MODELS, ...FALLBACK_MODELS];
+		usingPremiumModels = true;
+	} else {
+		// Free users: only fallback models
+		modelsToTry = [...FALLBACK_MODELS];
+		usingPremiumModels = false;
+	}
+
+	console.log("[OpenRouter] Models to try:", modelsToTry);
+
 	let lastError: unknown = null;
-	let triedPremiumModels = false;
+	let fallbackAttempted = false;
 
 	for (const keyCandidate of keyCandidates) {
 		for (const model of modelsToTry) {
 			const isPremiumModel = PREMIUM_MODELS.includes(model);
 			
-			// Skip premium models if user doesn't have access and it's not BYOK
+			// Skip premium models if user doesn't have access
 			if (isPremiumModel && !byokState.apiKey && !canUsePremium) {
+				console.log(`[OpenRouter] Skipping premium model ${model} - no access`);
 				continue;
 			}
-			
-			if (isPremiumModel) {
-				triedPremiumModels = true;
-			}
 
+			console.log(`[OpenRouter] Trying ${model} with ${keyCandidate.source} key`);
+			
 			try {
 				const response = await callOpenRouterChatCompletion(
 					keyCandidate,
@@ -348,6 +363,8 @@ export async function routeOpenRouterRequest(
 				);
 
 				if (response.ok) {
+					console.log(`[OpenRouter] Success with ${model}`);
+					
 					// Record usage
 					await recordUsageLog(
 						options.userId,
@@ -364,10 +381,24 @@ export async function routeOpenRouterRequest(
 					};
 				}
 
-				const errorBody = await response.json();
+				// Log the error response
+				const errorText = await response.text();
+				console.error(`[OpenRouter] ${model} failed:`, {
+					status: response.status,
+					error: errorText,
+				});
+				
+				let errorBody: unknown;
+				try {
+					errorBody = JSON.parse(errorText);
+				} catch {
+					errorBody = { raw: errorText };
+				}
+				
 				const classified = classifyOpenRouterError(errorBody);
 				lastError = errorBody;
 
+				// Critical error - don't try other models
 				if (classified === "context_length_exceeded") {
 					return {
 						ok: false,
@@ -378,31 +409,41 @@ export async function routeOpenRouterRequest(
 					};
 				}
 
-				// Continue to next model on other errors
+				// Mark that we attempted fallback models
+				if (!isPremiumModel) {
+					fallbackAttempted = true;
+				}
+
+				// Continue to next model
 				continue;
 			} catch (error) {
+				console.error(`[OpenRouter] ${model} exception:`, error);
 				lastError = error;
 				continue;
 			}
 		}
 	}
 
-	// If we tried premium models but none worked, suggest fallback
-	if (triedPremiumModels && !canUsePremium) {
+	// All models failed - determine appropriate error
+	console.error("[OpenRouter] All models failed:", lastError);
+
+	// If user has premium access but models failed, it's a service issue
+	if (canUsePremium || byokState.apiKey) {
 		return {
 			ok: false,
 			status: 503,
-			code: "credits_exhausted",
-			error: "Premium credits exhausted. Using free models instead.",
+			code: "ALL_MODELS_FAILED",
+			error: "All AI models are currently unavailable. Please try again later.",
 			details: lastError,
 		};
 	}
 
+	// User doesn't have premium - suggest upgrading
 	return {
 		ok: false,
-		status: 503,
-		code: "ALL_MODELS_FAILED",
-		error: "All AI models are currently unavailable. Please try again later.",
+		status: 403,
+		code: "credits_exhausted",
+		error: "Premium credits exhausted. Upgrade to Pro or buy credits to continue.",
 		details: lastError,
 	};
 }
