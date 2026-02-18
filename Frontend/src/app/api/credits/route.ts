@@ -5,7 +5,7 @@ const DAILY_FREE_QUOTA = 20;
 
 /**
  * GET /api/credits
- * Retourne le solde de crédits et le quota gratuit de l'utilisateur
+ * Returns user credits, subscription status, and free quota
  */
 export async function GET(request: NextRequest) {
 	const supabase = await createClient();
@@ -17,52 +17,53 @@ export async function GET(request: NextRequest) {
 	}
 	
 	try {
-		// 1. Récupérer les crédits achetés
+		// Get user credits and subscription info
 		const { data: credits, error: creditsError } = await supabase
 			.from("user_credits")
-			.select("balance, total_purchased, total_consumed, updated_at")
+			.select("premium_balance, total_purchased, total_consumed, free_used_today, subscription_tier, subscription_status, monthly_credits_used, monthly_credits_limit")
 			.eq("user_id", user.id)
 			.maybeSingle();
 		
-		// 2. Vérifier si l'utilisateur a BYOK
+		// Check BYOK
 		const { data: byokKey } = await supabase
 			.from("user_ai_keys")
 			.select("id")
 			.eq("user_id", user.id)
 			.maybeSingle();
 		
-		// 3. Calculer le quota gratuit utilisé aujourd'hui
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		
-		const { count: dailyUsage, error: usageError } = await supabase
-			.from("usage_logs")
-			.select("*", { count: "exact", head: true })
-			.eq("user_id", user.id)
-			.eq("action_type", "QUIZ")
-			.gte("created_at", today.toISOString());
-		
-		const purchasedBalance = credits?.balance ?? 0;
-		const freeUsed = dailyUsage ?? 0;
+		// Calculate remaining free quota
+		const freeUsed = credits?.free_used_today ?? 0;
 		const freeRemaining = Math.max(0, DAILY_FREE_QUOTA - freeUsed);
 		
+		const isPro = credits?.subscription_status === "active";
+		const monthlyRemaining = isPro ? (credits?.monthly_credits_limit ?? 200) - (credits?.monthly_credits_used ?? 0) : 0;
+		
+		// Total available premium credits (subscription + purchased)
+		const totalPremiumAvailable = (credits?.premium_balance ?? 0) + monthlyRemaining;
+		
 		return NextResponse.json({
-			// Crédits achetés
-			balance: purchasedBalance,
-			total_purchased: credits?.total_purchased ?? 0,
-			total_consumed: credits?.total_consumed ?? 0,
-			updated_at: credits?.updated_at ?? null,
+			// Premium credits
+			premium_balance: credits?.premium_balance ?? 0,
+			monthly_credits_used: credits?.monthly_credits_used ?? 0,
+			monthly_credits_limit: credits?.monthly_credits_limit ?? 200,
+			monthly_remaining: monthlyRemaining,
+			total_premium_available: totalPremiumAvailable,
 			
-			// Quota gratuit
+			// Free tier
 			free_quota: DAILY_FREE_QUOTA,
 			free_used: freeUsed,
 			free_remaining: freeRemaining,
 			
-			// BYOK status
+			// Subscription
+			subscription_tier: credits?.subscription_tier ?? "free",
+			subscription_status: credits?.subscription_status ?? "inactive",
+			is_pro: isPro,
+			
+			// BYOK
 			has_byok: !!byokKey,
 			
-			// Total utilisable maintenant
-			total_available: byokKey ? -1 : (purchasedBalance + freeRemaining),
+			// Total usable now
+			total_available: byokKey ? -1 : (totalPremiumAvailable + freeRemaining),
 		});
 	} catch (error) {
 		console.error("Error fetching credits:", error);

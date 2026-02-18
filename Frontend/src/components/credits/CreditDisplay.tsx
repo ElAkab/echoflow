@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Coins, Plus, Infinity, Gift } from "lucide-react";
+import { Coins, Plus, Infinity, Gift, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -9,14 +9,20 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 interface CreditInfo {
-	balance: number;
-	total_purchased: number;
-	total_consumed: number;
+	premium_balance: number;
+	monthly_credits_used: number;
+	monthly_credits_limit: number;
+	monthly_remaining: number;
+	total_premium_available: number;
 	free_quota: number;
 	free_used: number;
 	free_remaining: number;
+	subscription_tier: string;
+	subscription_status: string;
+	is_pro: boolean;
 	has_byok: boolean;
 	total_available: number;
 }
@@ -58,16 +64,16 @@ export function CreditDisplay({ variant = "compact" }: CreditDisplayProps) {
 	
 	if (!info) return null;
 	
-	// Affichage principal
+	// Main display
 	const displayValue = info.has_byok 
 		? "∞" 
-		: info.balance > 0 
-			? info.balance 
+		: info.total_premium_available > 0 
+			? info.total_premium_available 
 			: info.free_remaining;
 	
-	const isFreeQuota = !info.has_byok && info.balance === 0 && info.free_remaining > 0;
-	const isEmpty = !info.has_byok && info.balance === 0 && info.free_remaining === 0;
-	const isLow = !info.has_byok && info.balance > 0 && info.balance <= 5;
+	const isFreeQuota = !info.has_byok && info.total_premium_available === 0 && info.free_remaining > 0;
+	const isEmpty = !info.has_byok && info.total_premium_available === 0 && info.free_remaining === 0;
+	const isLow = !info.has_byok && info.total_premium_available > 0 && info.total_premium_available <= 5;
 	
 	if (variant === "compact") {
 		return (
@@ -80,14 +86,19 @@ export function CreditDisplay({ variant = "compact" }: CreditDisplayProps) {
 					>
 						{info.has_byok ? (
 							<Infinity className="h-4 w-4" />
+						) : info.is_pro ? (
+							<Crown className="h-4 w-4 text-amber-500" />
 						) : isFreeQuota ? (
 							<Gift className="h-4 w-4 text-green-500" />
 						) : (
 							<Coins className="h-4 w-4" />
 						)}
 						<span className="font-medium">{displayValue}</span>
+						{info.is_pro && (
+							<Badge variant="outline" className="text-xs ml-1 px-1">PRO</Badge>
+						)}
 						{isFreeQuota && (
-							<span className="text-xs text-muted-foreground">/jour</span>
+							<span className="text-xs text-muted-foreground">/day</span>
 						)}
 					</Button>
 				</PopoverTrigger>
@@ -108,26 +119,29 @@ export function CreditDisplay({ variant = "compact" }: CreditDisplayProps) {
 function CreditPopoverContent({ info }: { info: CreditInfo }) {
 	const displayValue = info.has_byok 
 		? "∞" 
-		: info.balance > 0 
-			? info.balance 
+		: info.total_premium_available > 0 
+			? info.total_premium_available 
 			: info.free_remaining;
 	
-	const isFreeQuota = !info.has_byok && info.balance === 0 && info.free_remaining > 0;
-	const isEmpty = !info.has_byok && info.balance === 0 && info.free_remaining === 0;
-	const isLow = !info.has_byok && info.balance > 0 && info.balance <= 5;
+	const isFreeQuota = !info.has_byok && info.total_premium_available === 0 && info.free_remaining > 0;
+	const isEmpty = !info.has_byok && info.total_premium_available === 0 && info.free_remaining === 0;
+	const isLow = !info.has_byok && info.total_premium_available > 0 && info.total_premium_available <= 5;
 	
 	return (
 		<div className="space-y-4">
-			{/* Header avec solde principal */}
+			{/* Header with main balance */}
 			<div className="flex items-center gap-3">
 				<div className={`p-2 rounded-full ${
 					info.has_byok ? "bg-primary/10" :
+					info.is_pro ? "bg-amber-500/10" :
 					isEmpty ? "bg-destructive/10" : 
 					isFreeQuota ? "bg-green-500/10" :
 					isLow ? "bg-yellow-500/10" : "bg-primary/10"
 				}`}>
 					{info.has_byok ? (
 						<Infinity className="h-5 w-5 text-primary" />
+					) : info.is_pro ? (
+						<Crown className="h-5 w-5 text-amber-500" />
 					) : isFreeQuota ? (
 						<Gift className="h-5 w-5 text-green-500" />
 					) : (
@@ -139,58 +153,69 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 				</div>
 				<div className="flex-1">
 					<p className="text-sm font-medium">
-						{info.has_byok ? "Questions illimitées" : "Study Questions"}
+						{info.has_byok ? "Unlimited Questions" : 
+						 info.is_pro ? "Pro Plan Active" : 
+						 "Study Questions"}
 					</p>
 					<p className="text-2xl font-bold">
 						{displayValue}
 						{isFreeQuota && (
 							<span className="text-sm font-normal text-muted-foreground ml-1">
-								gratuites aujourd'hui
+								free today
 							</span>
 						)}
 					</p>
 				</div>
 			</div>
 			
-			{/* Détails */}
+			{/* Details */}
 			{!info.has_byok && (
 				<>
 					<Separator />
 					
 					<div className="space-y-2 text-sm">
-						{/* Crédits achetés */}
-						<div className="flex justify-between">
-							<span className="text-muted-foreground">Crédits achetés</span>
-							<span className="font-medium">{info.balance}</span>
-						</div>
+						{/* Premium credits */}
+						{(info.is_pro || info.premium_balance > 0) && (
+							<div className="flex justify-between">
+								<span className="text-muted-foreground">
+									{info.is_pro ? "Monthly Credits" : "Purchased Credits"}
+								</span>
+								<span className="font-medium">
+									{info.is_pro 
+										? `${info.monthly_remaining} / ${info.monthly_credits_limit}`
+										: info.premium_balance
+									}
+								</span>
+							</div>
+						)}
 						
-						{/* Quota gratuit */}
+						{/* Free quota */}
 						<div className="flex justify-between">
-							<span className="text-muted-foreground">Gratuit aujourd'hui</span>
+							<span className="text-muted-foreground">Free Today</span>
 							<span className="font-medium">
 								{info.free_remaining} / {info.free_quota}
 							</span>
 						</div>
 					</div>
 					
-					{/* Messages d'alerte */}
+					{/* Alert messages */}
 					{isEmpty && (
 						<p className="text-sm text-destructive">
-							Vous avez utilisé toutes vos questions gratuites !
-							Achetez des crédits pour continuer.
+							You have used all your free questions!
+							Buy credits or upgrade to Pro.
 						</p>
 					)}
 					
 					{isFreeQuota && (
 						<p className="text-sm text-green-600">
-							🎁 {info.free_remaining} questions gratuites restantes aujourd'hui.
-							À minuit, vous aurez à nouveau {info.free_quota}.
+							🎁 {info.free_remaining} free questions remaining today.
+							At midnight, you will get {info.free_quota} more.
 						</p>
 					)}
 					
 					{isLow && (
 						<p className="text-sm text-yellow-500">
-							⚠️ Plus que {info.balance} crédits ! Pensez à recharger.
+							⚠️ Only {info.total_premium_available} premium credits left! Consider topping up.
 						</p>
 					)}
 				</>
@@ -199,15 +224,15 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 			{/* BYOK info */}
 			{info.has_byok && (
 				<p className="text-sm text-muted-foreground">
-					Vous utilisez votre propre clé OpenRouter.
-					Aucun crédit n'est consommé.
+					You are using your own OpenRouter key.
+					No credits are consumed.
 				</p>
 			)}
 			
 			<Button className="w-full gap-2" asChild>
 				<a href="/payment">
 					<Plus className="h-4 w-4" />
-					{info.has_byok ? "Voir les offres" : "Acheter des questions"}
+					{info.is_pro ? "Manage Subscription" : "Buy Credits"}
 				</a>
 			</Button>
 		</div>

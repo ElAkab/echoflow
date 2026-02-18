@@ -4,21 +4,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { decryptOpenRouterKey } from "@/lib/security/byok-crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hasCredits, consumeCredit, getCreditBalance } from "@/lib/credits";
+import { checkCredits, canUsePremiumModels } from "@/lib/credits";
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-
-const DEFAULT_PREMIUM_MODELS = [
+// Premium models (Pro subscribers and credit users)
+const PREMIUM_MODELS = [
 	"openai/gpt-4o-mini:paid",
 	"mistralai/mistral-7b-instruct:paid",
 ];
 
-const DEFAULT_FALLBACK_MODELS = [
+// Fallback models (Free tier)
+const FALLBACK_MODELS = [
 	"meta-llama/llama-3.3-70b-instruct:free",
 	"qwen/qwen-3-235b-a22b:free",
 	"mistralai/mistral-small-3.1-24b:free",
 	"google/gemma-3-4b-instruct:free",
 ];
+
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 type OpenRouterRole = "system" | "user" | "assistant" | "tool";
 
@@ -52,6 +54,7 @@ type OpenRouterRoutingSuccess = {
 	response: Response;
 	model: string;
 	keySource: KeySource;
+	isPremiumModel: boolean;
 };
 
 type OpenRouterRoutingFailure = {
@@ -75,6 +78,7 @@ type OpenRouterRoutingOptions = {
 	stream?: boolean;
 	title?: string;
 	actionType?: UsageActionType;
+	preferPremium?: boolean;
 };
 
 type PlatformKeyResolution =
@@ -112,33 +116,6 @@ function readStringValue(record: Record<string, unknown>, key: string): string {
 	if (typeof value === "string") return value;
 	if (typeof value === "number") return String(value);
 	return "";
-}
-
-function parseModelListFromEnv(
-	envName: string,
-	fallback: string[],
-): string[] {
-	const raw = process.env[envName];
-	if (!raw) return [...fallback];
-
-	const parsed = raw
-		.split(",")
-		.map((model) => model.trim())
-		.filter(Boolean);
-
-	return parsed.length > 0 ? parsed : [...fallback];
-}
-
-function getCandidateModels(): string[] {
-	const premium = parseModelListFromEnv(
-		"OPENROUTER_PREMIUM_MODELS",
-		DEFAULT_PREMIUM_MODELS,
-	);
-	const fallback = parseModelListFromEnv(
-		"OPENROUTER_FALLBACK_MODELS",
-		DEFAULT_FALLBACK_MODELS,
-	);
-	return [...new Set([...premium, ...fallback])];
 }
 
 function resolvePlatformKey(): PlatformKeyResolution {
@@ -221,93 +198,6 @@ function classifyOpenRouterError(errorData: unknown): OpenRouterModelErrorCode |
 	return null;
 }
 
-function parseSoftLimitRatio(): number {
-	const raw = process.env.OPENROUTER_PLATFORM_SOFT_LIMIT_RATIO;
-	if (!raw) return 0.9;
-	const parsed = Number.parseFloat(raw);
-	if (!Number.isFinite(parsed)) return 0.9;
-	return Math.min(1, Math.max(0.1, parsed));
-}
-
-function parseDailyLimit(): number | null {
-	const raw = process.env.OPENROUTER_PLATFORM_DAILY_REQUEST_LIMIT;
-	if (!raw) return null;
-	const parsed = Number.parseInt(raw, 10);
-	if (!Number.isFinite(parsed) || parsed <= 0) return null;
-	return parsed;
-}
-
-function parseUserDailyLimit(): number {
-	// Default to 50 requests per user per day if not set
-	const raw = process.env.OPENROUTER_USER_DAILY_REQUEST_LIMIT;
-	if (!raw) return 50;
-	const parsed = Number.parseInt(raw, 10);
-	if (!Number.isFinite(parsed) || parsed <= 0) return 50;
-	return parsed;
-}
-
-async function getPlatformBudgetState(userId: string): Promise<PlatformBudgetState> {
-	const limit = parseDailyLimit();
-	const userLimit = parseUserDailyLimit();
-	
-	const startOfDayUtc = new Date();
-	startOfDayUtc.setUTCHours(0, 0, 0, 0);
-
-	try {
-		const admin = createAdminClient();
-		
-		// Parallel queries for efficiency
-		const [platformUsage, userUsage] = await Promise.all([
-			// Platform-wide usage
-			limit ? admin
-				.from("usage_logs")
-				.select("id", { count: "exact", head: true })
-				.gte("created_at", startOfDayUtc.toISOString())
-				.like("model_used", "platform:%") 
-				: Promise.resolve({ count: 0, error: null }),
-			
-			// User-specific usage
-			admin
-				.from("usage_logs")
-				.select("id", { count: "exact", head: true })
-				.gte("created_at", startOfDayUtc.toISOString())
-				.like("model_used", "platform:%")
-				.eq("user_id", userId)
-		]);
-
-		if (platformUsage.error) {
-			console.warn("Failed to read platform budget usage_logs:", platformUsage.error.message);
-		}
-		if (userUsage.error) {
-			console.warn("Failed to read user budget usage_logs:", userUsage.error.message);
-		}
-
-		const currentCount = platformUsage.count ?? 0;
-		const userCurrentCount = userUsage.count ?? 0;
-		
-		const softLimit = limit ? Math.floor(limit * parseSoftLimitRatio()) : Infinity;
-
-		return {
-			hardBlocked: limit ? currentCount >= limit : false,
-			softLimitReached: limit ? currentCount >= softLimit : false,
-			limit,
-			currentCount,
-			userHardBlocked: userCurrentCount >= userLimit,
-			userCurrentCount
-		};
-	} catch (error) {
-		console.warn("Platform budget check unavailable:", error);
-		return {
-			hardBlocked: false,
-			softLimitReached: false,
-			limit,
-			currentCount: 0,
-			userHardBlocked: false,
-			userCurrentCount: 0
-		};
-	}
-}
-
 async function getUserByokState(
 	supabase: SupabaseClient,
 	userId: string,
@@ -320,7 +210,6 @@ async function getUserByokState(
 			.maybeSingle();
 
 		if (error) {
-			console.warn("Unable to fetch user BYOK state:", error.message);
 			return {
 				hasByokRow: false,
 				apiKey: null,
@@ -346,7 +235,6 @@ async function getUserByokState(
 				decryptionError: false,
 			};
 		} catch (error) {
-			console.error("Failed to decrypt user BYOK key:", error);
 			return {
 				hasByokRow: true,
 				apiKey: null,
@@ -355,46 +243,11 @@ async function getUserByokState(
 			};
 		}
 	} catch (error) {
-		console.warn("Unexpected BYOK lookup error:", error);
 		return {
 			hasByokRow: false,
 			apiKey: null,
 			last4: null,
 			decryptionError: false,
-		};
-	}
-}
-
-async function recordUsageLog(
-	userId: string,
-	modelUsed: string,
-	actionType: UsageActionType,
-): Promise<void> {
-	try {
-		const admin = createAdminClient();
-		const { error } = await admin.from("usage_logs").insert({
-			user_id: userId,
-			model_used: modelUsed,
-			action_type: actionType,
-		});
-
-		if (error) {
-			console.warn("Failed to record usage log:", error.message);
-		}
-	} catch (error) {
-		console.warn("Usage log recording unavailable:", error);
-	}
-}
-
-async function readErrorBody(response: Response): Promise<unknown> {
-	try {
-		return await response.json();
-	} catch {
-		return {
-			error: {
-				status: response.status,
-				message: response.statusText || "Unknown OpenRouter error",
-			},
 		};
 	}
 }
@@ -428,119 +281,90 @@ async function callOpenRouterChatCompletion(
 	});
 }
 
-function buildModelCandidates(
-	platform: PlatformKeyResolution,
-	platformBudget: PlatformBudgetState,
-	byok: UserByokState,
-): KeyCandidate[] {
-	const keyCandidates: KeyCandidate[] = [];
-
-	// Check both global hard block AND user hard block
-	const isBlocked = platformBudget.hardBlocked || platformBudget.userHardBlocked;
-
-	if (platform.key && !isBlocked) {
-		keyCandidates.push({ source: "platform", apiKey: platform.key });
-	}
-
-	if (byok.apiKey) {
-		keyCandidates.push({ source: "byok", apiKey: byok.apiKey });
-	}
-
-	return keyCandidates;
-}
-
 export async function routeOpenRouterRequest(
-	options: OpenRouterRoutingOptions,
+	options: OpenRouterRoutingOptions
 ): Promise<OpenRouterRoutingResult> {
 	const platformResolution = resolvePlatformKey();
-	const platformBudget = await getPlatformBudgetState(options.userId);
 	const byokState = await getUserByokState(options.supabase, options.userId);
-	const modelCandidates = getCandidateModels();
-	const keyCandidates = buildModelCandidates(
-		platformResolution,
-		platformBudget,
-		byokState,
-	);
+	
+	// Check if user has premium access
+	const canUsePremium = await canUsePremiumModels(options.userId);
+	const preferPremium = options.preferPremium !== false; // Default to true
+	
+	// Determine which models to try
+	let modelsToTry: string[];
+	if (byokState.apiKey) {
+		// BYOK users can use any model
+		modelsToTry = [...PREMIUM_MODELS, ...FALLBACK_MODELS];
+	} else if (canUsePremium && preferPremium) {
+		// Premium users get premium models first, then fallback
+		modelsToTry = [...PREMIUM_MODELS, ...FALLBACK_MODELS];
+	} else {
+		// Free users only get fallback models
+		modelsToTry = [...FALLBACK_MODELS];
+	}
 
-	if (platformBudget.softLimitReached && platformBudget.limit) {
-		console.warn(
-			`OpenRouter platform budget soft threshold reached (${platformBudget.currentCount}/${platformBudget.limit}).`,
-		);
+	// Build key candidates
+	const keyCandidates: KeyCandidate[] = [];
+	
+	if (platformResolution.key) {
+		keyCandidates.push({ source: "platform", apiKey: platformResolution.key });
+	}
+	
+	if (byokState.apiKey) {
+		keyCandidates.push({ source: "byok", apiKey: byokState.apiKey });
 	}
 
 	if (keyCandidates.length === 0) {
-		if (byokState.decryptionError && byokState.hasByokRow) {
-			return {
-				ok: false,
-				status: 503,
-				code: "byok_or_upgrade_required",
-				error:
-					"Your stored API key is corrupted. Please update it in settings to continue.",
-			};
-		}
-
-		if (platformBudget.hardBlocked) {
-			return {
-				ok: false,
-				status: 503,
-				code: "platform_budget_exhausted",
-				error:
-					"Platform AI budget reached for today. Add your OpenRouter key or upgrade to continue.",
-			};
-		}
-		
-		if (platformBudget.userHardBlocked) {
-			return {
-				ok: false,
-				status: 429, // Too Many Requests
-				code: "rate_limit_exceeded",
-				error:
-					"You have reached your daily free AI limit. Upgrade to Pro or add your own key to continue.",
-			};
-		}
-
 		return {
 			ok: false,
 			status: 503,
 			code: "byok_or_upgrade_required",
-			error:
-				platformResolution.misconfigured
-					? "OpenRouter platform key is not configured. Add your API key in settings."
-					: "No AI key available. Add your OpenRouter API key or upgrade to continue.",
+			error: "No AI key available. Add your OpenRouter API key or upgrade to continue.",
 		};
 	}
 
 	let lastError: unknown = null;
-	let sawRateLimit = false;
-	let sawInsufficientQuota = false;
-	let sawByokFailure = false;
-	let sawByokInvalidApiKey = false;
+	let triedPremiumModels = false;
 
 	for (const keyCandidate of keyCandidates) {
-		for (const model of modelCandidates) {
+		for (const model of modelsToTry) {
+			const isPremiumModel = PREMIUM_MODELS.includes(model);
+			
+			// Skip premium models if user doesn't have access and it's not BYOK
+			if (isPremiumModel && !byokState.apiKey && !canUsePremium) {
+				continue;
+			}
+			
+			if (isPremiumModel) {
+				triedPremiumModels = true;
+			}
+
 			try {
 				const response = await callOpenRouterChatCompletion(
 					keyCandidate,
 					model,
-					options,
+					options
 				);
 
 				if (response.ok) {
-					const actionType = options.actionType || "QUIZ";
+					// Record usage
 					await recordUsageLog(
 						options.userId,
 						`${keyCandidate.source}:${model}`,
-						actionType,
+						options.actionType || "QUIZ"
 					);
+					
 					return {
 						ok: true,
 						response,
 						model,
 						keySource: keyCandidate.source,
+						isPremiumModel,
 					};
 				}
 
-				const errorBody = await readErrorBody(response);
+				const errorBody = await response.json();
 				const classified = classifyOpenRouterError(errorBody);
 				lastError = errorBody;
 
@@ -554,34 +378,7 @@ export async function routeOpenRouterRequest(
 					};
 				}
 
-				if (classified === "rate_limit_exceeded") {
-					sawRateLimit = true;
-				}
-
-				if (classified === "insufficient_quota") {
-					sawInsufficientQuota = true;
-					if (keyCandidate.source === "platform") {
-						break;
-					}
-				}
-
-				if (classified === "invalid_api_key" && keyCandidate.source === "byok") {
-					sawByokInvalidApiKey = true;
-				}
-
-				if (
-					classified === "invalid_api_key" ||
-					classified === "insufficient_quota"
-				) {
-					if (keyCandidate.source === "byok") {
-						sawByokFailure = true;
-					}
-					if (keyCandidate.source === "platform") {
-						break;
-					}
-				}
-
-				// For invalid_model, rate_limit and unknown errors: try next model.
+				// Continue to next model on other errors
 				continue;
 			} catch (error) {
 				lastError = error;
@@ -590,65 +387,13 @@ export async function routeOpenRouterRequest(
 		}
 	}
 
-	if ((platformBudget.hardBlocked || platformBudget.userHardBlocked) && !byokState.apiKey) {
-		if (platformBudget.userHardBlocked) {
-			return {
-				ok: false,
-				status: 429,
-				code: "rate_limit_exceeded",
-				error: "You have reached your daily free AI limit. Upgrade to Pro or add your own key to continue.",
-				details: lastError,
-			};
-		}
-		
+	// If we tried premium models but none worked, suggest fallback
+	if (triedPremiumModels && !canUsePremium) {
 		return {
 			ok: false,
 			status: 503,
-			code: "platform_budget_exhausted",
-			error:
-				"Platform AI budget reached for today. Add your OpenRouter key or upgrade to continue.",
-			details: lastError,
-		};
-	}
-
-	const byokOnlyAttempted =
-		keyCandidates.length === 1 && keyCandidates[0]?.source === "byok";
-
-	if (sawInsufficientQuota && byokOnlyAttempted) {
-		return {
-			ok: false,
-			status: 503,
-			code: "insufficient_quota",
-			error:
-				"Insufficient quota on your OpenRouter key. Recharge your key balance and retry.",
-			details: lastError,
-		};
-	}
-
-	if (
-		(sawInsufficientQuota && !byokState.apiKey) ||
-		(byokState.decryptionError && byokState.hasByokRow) ||
-		sawByokFailure
-	) {
-		const byokHint = sawByokInvalidApiKey
-			? "Your BYOK key appears invalid. Update it in settings."
-			: "Add or update your OpenRouter API key in settings, or upgrade.";
-
-		return {
-			ok: false,
-			status: 503,
-			code: "byok_or_upgrade_required",
-			error: `AI quota is unavailable right now. ${byokHint}`,
-			details: lastError,
-		};
-	}
-
-	if (sawRateLimit) {
-		return {
-			ok: false,
-			status: 429,
-			code: "rate_limit_exceeded",
-			error: "Rate limit reached. Please retry in a moment.",
+			code: "credits_exhausted",
+			error: "Premium credits exhausted. Using free models instead.",
 			details: lastError,
 		};
 	}
@@ -660,4 +405,21 @@ export async function routeOpenRouterRequest(
 		error: "All AI models are currently unavailable. Please try again later.",
 		details: lastError,
 	};
+}
+
+async function recordUsageLog(
+	userId: string,
+	modelUsed: string,
+	actionType: UsageActionType,
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		await admin.from("usage_logs").insert({
+			user_id: userId,
+			model_used: modelUsed,
+			action_type: actionType,
+		});
+	} catch (error) {
+		console.warn("Failed to record usage log:", error);
+	}
 }

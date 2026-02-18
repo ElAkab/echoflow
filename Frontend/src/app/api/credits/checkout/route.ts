@@ -2,37 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-	apiVersion: "2026-01-28.clover",
-});
+const stripe = process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== "sk_test_demo"
+	? new Stripe(process.env.STRIPE_SECRET_KEY, {
+			apiVersion: "2026-01-28.clover",
+	  })
+	: null;
 
-// Configuration des packs de crédits
-const CREDIT_PACKS = {
-	starter: {
-		name: "Starter Pack",
-		credits: 50,
-		price: 500, // 5.00 EUR
-		description: "50 Study Questions",
-	},
-	popular: {
-		name: "Popular Pack",
-		credits: 120,
-		price: 1000, // 10.00 EUR (20% bonus)
-		description: "120 Study Questions (20% bonus)",
-	},
-	pro: {
-		name: "Pro Pack",
-		credits: 300,
-		price: 2000, // 20.00 EUR
-		description: "300 Study Questions (best value)",
-	},
+// Top-up credits: 3€ for 30 credits
+const TOP_UP_CONFIG = {
+	credits: 30,
+	price: 300, // 3.00 EUR
 };
-
-export type CreditPackType = keyof typeof CREDIT_PACKS;
 
 /**
  * POST /api/credits/checkout
- * Crée une session Stripe Checkout pour acheter des crédits
+ * Create checkout session for credits top-up (3€ = 30 credits)
  */
 export async function POST(request: NextRequest) {
 	const supabase = await createClient();
@@ -43,20 +27,36 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 	
-	try {
-		const body = await request.json();
-		const { pack } = body as { pack: CreditPackType };
+	// DEV MODE: Add credits directly
+	if (!stripe) {
+		console.log("[DEV MODE] Adding credits directly");
 		
-		if (!pack || !CREDIT_PACKS[pack]) {
-			return NextResponse.json(
-				{ error: "Invalid credit pack" },
-				{ status: 400 }
-			);
+		const { data, error } = await supabase.rpc("add_credits", {
+			p_user_id: user.id,
+			p_amount: TOP_UP_CONFIG.credits,
+			p_metadata: {
+				mode: "development",
+				amount_eur: TOP_UP_CONFIG.price / 100,
+				simulated: true,
+			},
+		});
+		
+		if (error) {
+			console.error("Error adding credits:", error);
+			return NextResponse.json({ error: "Failed to add credits" }, { status: 500 });
 		}
 		
-		const selectedPack = CREDIT_PACKS[pack];
-		
-		// Créer la session Stripe Checkout
+		return NextResponse.json({
+			success: true,
+			devMode: true,
+			credits: TOP_UP_CONFIG.credits,
+			newBalance: data?.[0]?.new_balance,
+			redirectUrl: "/payment/success?dev_mode=true",
+		});
+	}
+	
+	// PRODUCTION: Create Stripe checkout session
+	try {
 		const session = await stripe.checkout.sessions.create({
 			payment_method_types: ["card"],
 			line_items: [
@@ -64,23 +64,22 @@ export async function POST(request: NextRequest) {
 					price_data: {
 						currency: "eur",
 						product_data: {
-							name: selectedPack.name,
-							description: selectedPack.description,
+							name: "30 Crédits Premium",
+							description: "30 questions avec modèles premium (GPT-4o, Mistral 7B)",
 						},
-						unit_amount: selectedPack.price,
+						unit_amount: TOP_UP_CONFIG.price,
 					},
 					quantity: 1,
 				},
 			],
 			mode: "payment",
-			success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-			cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/cancel`,
+			success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+			cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/payment/cancel`,
 			metadata: {
 				user_id: user.id,
-				credits: selectedPack.credits.toString(),
-				pack_type: pack,
+				credits: TOP_UP_CONFIG.credits.toString(),
+				type: "topup",
 			},
-			// Sauvegarder l'email pour le reçu
 			customer_email: user.email,
 		});
 		

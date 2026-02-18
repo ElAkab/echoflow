@@ -1,26 +1,33 @@
 /**
- * Study Credits System - Logic
+ * Credit System - Logic
  * 
- * Gestion des crédits Study Questions pour les utilisateurs
- * - Vérification du solde
- * - Consommation de crédits
- * - Vérification d'éligibilité aux quiz
+ * Hybrid model: Subscription (Pro) + Top-up credits + Free tier
+ * - Pro: €7/month = 200 premium credits/month
+ * - Top-up: €3 = 30 credits (never expire)
+ * - Free: 20 quizzes/day with fallback models
  */
 
 import { createClient } from "@/lib/supabase/server";
 
+const DAILY_FREE_QUOTA = 20;
+
+export type CreditSource = "byok" | "subscription" | "purchased" | "free_quota";
+
+interface CreditCheckResult {
+	hasCredits: boolean;
+	canUsePremium: boolean;
+	source: CreditSource;
+	premiumRemaining: number;
+	freeRemaining: number;
+}
+
 /**
- * Vérifie si l'utilisateur a des crédits disponibles
- * 
- * Ordre de priorité pour l'accès IA:
- * 1. BYOK (clé perso) → Toujours gratuit
- * 2. Crédits achetés → 1 crédit = 1 quiz
- * 3. Quota gratuit journalier (20/jour)
+ * Check if user has credits available and determine source
  */
-export async function hasCredits(userId: string): Promise<boolean> {
+export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 	const supabase = await createClient();
 
-	// 1. Vérifier si l'utilisateur a BYOK
+	// 1. Check BYOK (unlimited)
 	const { data: byokKey } = await supabase
 		.from("user_ai_keys")
 		.select("id")
@@ -28,127 +35,176 @@ export async function hasCredits(userId: string): Promise<boolean> {
 		.maybeSingle();
 
 	if (byokKey) {
-		return true; // BYOK = accès illimité
+		return {
+			hasCredits: true,
+			canUsePremium: true,
+			source: "byok",
+			premiumRemaining: -1,
+			freeRemaining: DAILY_FREE_QUOTA,
+		};
 	}
 
-	// 2. Vérifier les crédits achetés
+	// 2. Get user credits
 	const { data: credits } = await supabase
 		.from("user_credits")
-		.select("balance")
+		.select("premium_balance, subscription_status, monthly_credits_used, monthly_credits_limit, free_used_today, current_period_end")
 		.eq("user_id", userId)
 		.maybeSingle();
 
-	if (credits && credits.balance > 0) {
-		return true;
+	if (!credits) {
+		return {
+			hasCredits: true, // New users get free tier
+			canUsePremium: false,
+			source: "free_quota",
+			premiumRemaining: 0,
+			freeRemaining: DAILY_FREE_QUOTA,
+		};
 	}
 
-	// 3. Vérifier le quota gratuit journalier
-	const hasFree = await hasFreeQuota(userId);
-	return hasFree;
+	// Check subscription validity
+	const isProActive = credits.subscription_status === "active" && 
+		(!credits.current_period_end || new Date(credits.current_period_end) > new Date());
+
+	// Calculate monthly remaining
+	const monthlyRemaining = isProActive 
+		? (credits.monthly_credits_limit ?? 200) - (credits.monthly_credits_used ?? 0)
+		: 0;
+
+	// Total premium available (subscription + purchased)
+	const totalPremium = (credits.premium_balance ?? 0) + Math.max(0, monthlyRemaining);
+
+	// Calculate free remaining
+	const freeRemaining = Math.max(0, DAILY_FREE_QUOTA - (credits.free_used_today ?? 0));
+
+	// Determine source
+	let source: CreditSource = "free_quota";
+	if (totalPremium > 0) {
+		source = isProActive && monthlyRemaining > 0 ? "subscription" : "purchased";
+	}
+
+	return {
+		hasCredits: totalPremium > 0 || freeRemaining > 0,
+		canUsePremium: totalPremium > 0,
+		source,
+		premiumRemaining: totalPremium,
+		freeRemaining,
+	};
 }
 
 /**
- * Obtient le solde de crédits de l'utilisateur
+ * Legacy function for backward compatibility
+ * @deprecated Use checkCredits instead
  */
-export async function getCreditBalance(userId: string): Promise<number> {
+export async function hasCredits(userId: string): Promise<boolean> {
+	const result = await checkCredits(userId);
+	return result.hasCredits;
+}
+
+/**
+ * Get detailed credit balance
+ */
+export async function getCreditBalance(userId: string): Promise<{
+	premium: number;
+	monthlyUsed: number;
+	monthlyLimit: number;
+	freeUsed: number;
+	freeLimit: number;
+	isPro: boolean;
+}> {
 	const supabase = await createClient();
 	
 	const { data } = await supabase
 		.from("user_credits")
-		.select("balance")
+		.select("premium_balance, monthly_credits_used, monthly_credits_limit, free_used_today, subscription_status, current_period_end")
 		.eq("user_id", userId)
 		.maybeSingle();
 	
-	return data?.balance ?? 0;
+	const isPro = data?.subscription_status === "active" &&
+		(!data?.current_period_end || new Date(data.current_period_end) > new Date());
+	
+	return {
+		premium: data?.premium_balance ?? 0,
+		monthlyUsed: data?.monthly_credits_used ?? 0,
+		monthlyLimit: data?.monthly_credits_limit ?? 200,
+		freeUsed: data?.free_used_today ?? 0,
+		freeLimit: DAILY_FREE_QUOTA,
+		isPro,
+	};
 }
 
 /**
- * Consomme un crédit pour générer un quiz
- * Retourne true si la consommation a réussi
+ * Consume a credit for quiz generation
+ * Returns success status and source of credit used
  */
-export async function consumeCredit(userId: string): Promise<{
+export async function consumeCredit(
+	userId: string,
+	preferPremium: boolean = true
+): Promise<{
 	success: boolean;
 	balance: number;
 	message: string;
-	source: "byok" | "credits" | "free_quota";
+	source: CreditSource;
 }> {
 	const supabase = await createClient();
 
-	// Vérifier BYOK d'abord
+	// Check BYOK first
 	const { data: byokKey } = await supabase
 		.from("user_ai_keys")
 		.select("id")
 		.eq("user_id", userId)
 		.maybeSingle();
 
-	// BYOK = pas de consommation de crédits
 	if (byokKey) {
 		return {
 			success: true,
-			balance: -1, // Illimité
+			balance: -1,
 			message: "Using BYOK - no credits consumed",
 			source: "byok",
 		};
 	}
 
-	// Vérifier si l'utilisateur a des crédits achetés
-	const { data: credits } = await supabase
-		.from("user_credits")
-		.select("balance")
-		.eq("user_id", userId)
-		.maybeSingle();
+	// Use RPC to consume credit atomically
+	const { data, error } = await supabase.rpc("consume_credit", {
+		p_user_id: userId,
+		p_is_premium_request: preferPremium,
+	});
 
-	// Si crédits achetés disponibles, les consommer
-	if (credits && credits.balance > 0) {
-		const { data, error } = await supabase.rpc("consume_credit", {
-			p_user_id: userId,
-		});
-
-		if (error) {
-			console.error("Error consuming credit:", error);
-			return {
-				success: false,
-				balance: credits.balance,
-				message: error.message,
-				source: "credits",
-			};
-		}
-
-		const result = data?.[0] || data;
+	if (error) {
+		console.error("Error consuming credit:", error);
 		return {
-			success: result?.success || false,
-			balance: result?.new_balance || 0,
-			message: result?.message || "Credit consumed",
-			source: "credits",
-		};
-	}
-
-	// Sinon, utiliser le quota gratuit
-	const remainingFree = await getRemainingFreeQuota(userId);
-	if (remainingFree > 0) {
-		return {
-			success: true,
-			balance: remainingFree - 1,
-			message: `Using free quota - ${remainingFree - 1} remaining today`,
+			success: false,
+			balance: 0,
+			message: error.message,
 			source: "free_quota",
 		};
 	}
 
-	// Aucun crédit disponible
+	const result = data?.[0] || data;
+	
+	// Determine source from result
+	let source: CreditSource = "free_quota";
+	if (result.used_premium) {
+		// Check if it came from subscription or purchased credits
+		const balance = await getCreditBalance(userId);
+		source = balance.isPro && balance.monthlyUsed <= balance.monthlyLimit 
+			? "subscription" 
+			: "purchased";
+	}
+
 	return {
-		success: false,
-		balance: 0,
-		message: "No credits available",
-		source: "credits",
+		success: result.success || false,
+		balance: result.new_premium_balance || 0,
+		message: result.message || "Credit consumed",
+		source,
 	};
 }
 
 /**
- * Formate le nombre de crédits pour l'affichage
+ * Format credits for display
  */
 export function formatCredits(balance: number): string {
 	if (balance < 0) {
-		return "∞"; // Illimité (BYOK)
+		return "∞";
 	}
 	if (balance === 0) {
 		return "0";
@@ -159,46 +215,26 @@ export function formatCredits(balance: number): string {
 	return balance.toString();
 }
 
-const DAILY_FREE_QUOTA = 20; // 20 questions gratuites par jour
+/**
+ * Check if user can use premium models
+ */
+export async function canUsePremiumModels(userId: string): Promise<boolean> {
+	const result = await checkCredits(userId);
+	return result.canUsePremium;
+}
 
 /**
- * Obtient le nombre de questions utilisées aujourd'hui
- * Pour le quota gratuit journalier
+ * Get daily usage count (legacy function for backward compatibility)
+ * @deprecated Use checkCredits or getCreditBalance instead
  */
 export async function getDailyUsage(userId: string): Promise<number> {
 	const supabase = await createClient();
 	
-	// Compter les usage_logs de type QUIZ aujourd'hui
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	
-	const { count, error } = await supabase
-		.from("usage_logs")
-		.select("*", { count: "exact", head: true })
+	const { data } = await supabase
+		.from("user_credits")
+		.select("free_used_today")
 		.eq("user_id", userId)
-		.eq("action_type", "QUIZ")
-		.gte("created_at", today.toISOString());
+		.maybeSingle();
 	
-	if (error) {
-		console.error("Error getting daily usage:", error);
-		return 0;
-	}
-	
-	return count || 0;
-}
-
-/**
- * Vérifie si l'utilisateur a encore des questions gratuites disponibles aujourd'hui
- */
-export async function hasFreeQuota(userId: string): Promise<boolean> {
-	const dailyUsage = await getDailyUsage(userId);
-	return dailyUsage < DAILY_FREE_QUOTA;
-}
-
-/**
- * Obtient le nombre de questions gratuites restantes aujourd'hui
- */
-export async function getRemainingFreeQuota(userId: string): Promise<number> {
-	const dailyUsage = await getDailyUsage(userId);
-	return Math.max(0, DAILY_FREE_QUOTA - dailyUsage);
+	return data?.free_used_today ?? 0;
 }
