@@ -66,6 +66,16 @@ function normalizeIncomingMessages(payload: unknown): OpenRouterMessage[] {
 			// Check if this is the first message of a session
 			const isFirstMessage = !messages || messages.length === 0;
 
+			// Deterministic note rotation: count assistant turns already in history.
+			// assistantTurns=0 → Note 0, assistantTurns=1 → Note 1, etc.
+			const rawMessages = Array.isArray(messages) ? messages : [];
+			const assistantTurns = rawMessages.filter(
+				(m: unknown) =>
+					m !== null &&
+					typeof m === "object" &&
+					(m as Record<string, unknown>).role === "assistant",
+			).length;
+
 			if (!noteIds || !Array.isArray(noteIds) || noteIds.length === 0) {
 				return NextResponse.json(
 					{ error: "noteIds array is required" },
@@ -164,8 +174,18 @@ function normalizeIncomingMessages(payload: unknown): OpenRouterMessage[] {
 			}
 		}
 
-		// Combine all notes content
-		const combinedContent = notes
+		// Deterministic note targeting: rotate by completed assistant turns.
+		// Target note is placed FIRST in combinedContent so primacy bias works for us.
+		const targetNoteIdx = notes.length > 1 ? assistantTurns % notes.length : 0;
+		const targetNote = notes[targetNoteIdx];
+
+		const orderedNotes =
+			notes.length > 1
+				? [targetNote, ...notes.filter((_, i) => i !== targetNoteIdx)]
+				: notes;
+
+		// Combine all notes content (target note first)
+		const combinedContent = orderedNotes
 			.map((note) => `**${note.title}**\n${note.content}`)
 			.join("\n\n---\n\n");
 
@@ -175,18 +195,15 @@ function normalizeIncomingMessages(payload: unknown): OpenRouterMessage[] {
 				? notes.map((n, i) => `${i + 1}. "${n.title}"`).join(" | ")
 				: `"${notes[0].title}"`;
 
-		const multiNoteRules =
+		// Per-turn mandatory target (replaces vague rotation instructions)
+		const targetNoteInstruction =
 			notes.length > 1
-				? `
-**MULTI-NOTE COVERAGE (${notes.length} notes — MANDATORY):**
-Notes in this session: ${noteIndex}
+				? `\n**MANDATORY TARGET FOR THIS TURN:**\nAsk your question about: "${targetNote.title}" (Note ${targetNoteIdx + 1} of ${notes.length})\nDo NOT ask about any other note unless forming an explicit cross-note connection.\n`
+				: "";
 
-- You MUST distribute questions EQUALLY across ALL ${notes.length} notes.
-- Do NOT focus on only one note. Every note must be covered.
-- isFirstMessage=TRUE: start from ANY note — do NOT always pick Note 1. Vary your starting point.
-- isFirstMessage=FALSE: after evaluating the answer, choose a question from a DIFFERENT note than the last one, OR ask a question that CONNECTS concepts across multiple notes.
-- If you just asked about Note ${notes.length}, cycle back to Note 1.
-`
+		const multiNoteContext =
+			notes.length > 1
+				? `\n**MULTI-NOTE SESSION (${notes.length} notes):**\nAll notes: ${noteIndex}\nThe server rotates the target note each turn — always follow the MANDATORY TARGET above.\n`
 				: "";
 
 		const systemPrompt = `You are a helpful AI tutor helping students review and connect multiple study notes through interactive conversation.
@@ -194,19 +211,19 @@ Notes in this session: ${noteIndex}
 **CRITICAL CONTEXT:**
 isFirstMessage: ${isFirstMessage ? "TRUE" : "FALSE"}
 ${isFirstMessage ? "→ This is the START of a new quiz session. You MUST ask a question first." : "→ This is a CONTINUATION of an ongoing quiz session. Evaluate the user's answer."}
-${multiNoteRules}
+${multiNoteContext}${targetNoteInstruction}
 **STRICT DECISION RULES:**
 1. IF isFirstMessage IS TRUE:
    - Your response MUST be ONLY ONE question
    - DO NOT evaluate, correct, or judge anything
    - DO NOT say "Correct", "Incorrect", or any evaluation
-   - Pick a note to start from (not always Note 1 — vary it) and ask a relevant question
+   - Ask a question about the MANDATORY TARGET note above
 
 2. IF isFirstMessage IS FALSE:
    - The user has provided an answer to your previous question
    - Evaluate their answer with: "Correct ✅" / "Almost 🤏" / "Incorrect ❌"
    - Give a brief explanation (under 60 words)
-   - Ask ONE thoughtful follow-up question from a DIFFERENT note (or connecting multiple notes)
+   - Ask ONE follow-up question about the MANDATORY TARGET note above
 
 **OUTPUT FORMAT (STRICT):**
 Return two parts in this exact order:

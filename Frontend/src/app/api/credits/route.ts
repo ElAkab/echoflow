@@ -23,7 +23,7 @@ export async function GET(_request: NextRequest) {
 		const [{ data: profile }, { data: byokKey }] = await Promise.all([
 			supabase
 				.from("profiles")
-				.select("credits, free_used_today")
+				.select("credits, free_used_today, free_reset_at")
 				.eq("id", user.id)
 				.maybeSingle(),
 			supabase
@@ -34,8 +34,19 @@ export async function GET(_request: NextRequest) {
 		]);
 
 		const credits = profile?.credits ?? 0;
-		const freeUsed = profile?.free_used_today ?? 0;
-		const freeRemaining = Math.max(0, DAILY_FREE_QUOTA - freeUsed);
+
+		// Mirror the daily-reset logic from the consume_credit SQL RPC:
+		// if free_reset_at is from a previous calendar day, treat free_used_today as 0.
+		const lastResetAt = profile?.free_reset_at
+			? new Date(profile.free_reset_at)
+			: null;
+		const todayStart = new Date();
+		todayStart.setHours(0, 0, 0, 0);
+		const effectiveFreeUsed =
+			!lastResetAt || lastResetAt < todayStart
+				? 0
+				: (profile?.free_used_today ?? 0);
+		const freeRemaining = Math.max(0, DAILY_FREE_QUOTA - effectiveFreeUsed);
 
 		return NextResponse.json({
 			// Purchased credits
@@ -44,7 +55,7 @@ export async function GET(_request: NextRequest) {
 
 			// Free daily quota
 			free_quota: DAILY_FREE_QUOTA,
-			free_used: freeUsed,
+			free_used: effectiveFreeUsed,
 			free_remaining: freeRemaining,
 
 			// BYOK
