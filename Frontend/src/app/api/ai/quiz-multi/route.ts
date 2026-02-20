@@ -174,93 +174,98 @@ function normalizeIncomingMessages(payload: unknown): OpenRouterMessage[] {
 			}
 		}
 
-		// Deterministic note targeting: rotate by completed assistant turns.
-		// Target note is placed FIRST in combinedContent so primacy bias works for us.
+		// ── Phase detection ───────────────────────────────────────────────────────
+		// Phase A — FOCUSED  : one question per note (turns 0..N-1)
+		// Phase B — SYNTHESIS: cross-note questions once all notes covered (turns N+)
 		const targetNoteIdx = notes.length > 1 ? assistantTurns % notes.length : 0;
 		const targetNote = notes[targetNoteIdx];
+		const phase: "focused" | "synthesis" =
+			notes.length <= 1 || assistantTurns < notes.length ? "focused" : "synthesis";
 
-		const orderedNotes =
-			notes.length > 1
-				? [targetNote, ...notes.filter((_, i) => i !== targetNoteIdx)]
-				: notes;
+		// ── Adaptive context builder ───────────────────────────────────────────
+		// Phase A: inject ONLY the target note (full content) — keeps tokens low.
+		// Phase B: inject compact summaries of ALL notes so the LLM can draw
+		//          explicit connections without drowning in raw text.
 
-		// Combine all notes content (target note first)
-		const combinedContent = orderedNotes
-			.map((note) => `**${note.title}**\n${note.content}`)
-			.join("\n\n---\n\n");
+		function extractExcerpt(content: string, maxWords: number): string {
+			const words = content.split(/\s+/).filter(Boolean);
+			if (words.length <= maxWords) return content;
+			return words.slice(0, maxWords).join(" ") + "…";
+		}
 
-		// Prepare system prompt with explicit isFirstMessage flag
-		const noteIndex =
-			notes.length > 1
-				? notes.map((n, i) => `${i + 1}. "${n.title}"`).join(" | ")
-				: `"${notes[0].title}"`;
+		function extractHeadings(content: string): string {
+			const headings = content.match(/^#{1,3}\s+.+$/gm) ?? [];
+			return headings
+				.map((h) => h.replace(/^#{1,3}\s+/, "").trim())
+				.join(", ");
+		}
 
-		// Per-turn mandatory target (replaces vague rotation instructions)
-		const targetNoteInstruction =
-			notes.length > 1
-				? `\n**MANDATORY TARGET FOR THIS TURN:**\nAsk your question about: "${targetNote.title}" (Note ${targetNoteIdx + 1} of ${notes.length})\nDo NOT ask about any other note unless forming an explicit cross-note connection.\n`
-				: "";
+		let noteContext: string;
+		let phaseHeader: string;
 
-		const multiNoteContext =
-			notes.length > 1
-				? `\n**MULTI-NOTE SESSION (${notes.length} notes):**\nAll notes: ${noteIndex}\nThe server rotates the target note each turn — always follow the MANDATORY TARGET above.\n`
-				: "";
+		if (phase === "focused") {
+			noteContext = targetNote.content;
+			phaseHeader = notes.length > 1
+				? `**SESSION PHASE: Note Coverage** (turn ${assistantTurns + 1} / ${notes.length})\nCurrent target: **"${targetNote.title}"** (Note ${targetNoteIdx + 1} of ${notes.length})`
+				: `**Note:** "${targetNote.title}"`;
+		} else {
+			const noteIndex = notes.map((n, i) => `${i + 1}. "${n.title}"`).join(" | ");
+			noteContext = notes
+				.map((n, i) => {
+					const headings = extractHeadings(n.content);
+					const excerpt = extractExcerpt(n.content, 100);
+					return `**Note ${i + 1}: ${n.title}**${headings ? `\nSections: ${headings}` : ""}\n${excerpt}`;
+				})
+				.join("\n\n---\n\n");
+			phaseHeader = `**SESSION PHASE: Cross-Note Synthesis** (all ${notes.length} notes individually covered)\nNotes in this session: ${noteIndex}`;
+		}
 
+		// ── Phase-specific instructions ────────────────────────────────────────
+		const phaseInstructions =
+			phase === "focused"
+				? `Your question MUST be specifically about: **"${targetNote.title}"**
+Do NOT ask about other notes in this turn.`
+				: `Your question MUST explicitly connect concepts from at least two notes.
+Name the notes by title in your question (e.g. "How does X from **Note 1** relate to Y in **Note 2**?").
+Do NOT ask a question that could apply to a single note alone.`;
+
+		// ── System prompt ──────────────────────────────────────────────────────
 		const systemPrompt = `You are a helpful AI tutor helping students review and connect multiple study notes through interactive conversation.
 
-**CRITICAL CONTEXT:**
-isFirstMessage: ${isFirstMessage ? "TRUE" : "FALSE"}
-${isFirstMessage ? "→ This is the START of a new quiz session. You MUST ask a question first." : "→ This is a CONTINUATION of an ongoing quiz session. Evaluate the user's answer."}
-${multiNoteContext}${targetNoteInstruction}
-**STRICT DECISION RULES:**
+${phaseHeader}
+
+**isFirstMessage: ${isFirstMessage ? "TRUE" : "FALSE"}**
+${isFirstMessage ? "→ START of quiz session: ask your first question." : "→ CONTINUATION: evaluate the user's answer, then ask the next question."}
+
+**QUESTION RULES FOR THIS TURN:**
+${phaseInstructions}
+
+**TURN STRUCTURE:**
 1. IF isFirstMessage IS TRUE:
-   - Your response MUST be ONLY ONE question
-   - DO NOT evaluate, correct, or judge anything
-   - DO NOT say "Correct", "Incorrect", or any evaluation
-   - Ask a question about the MANDATORY TARGET note above
+   - ONE question only — no evaluation, no preamble
+   - Do NOT say "Correct", "Incorrect", or any variant
 
 2. IF isFirstMessage IS FALSE:
-   - The user has provided an answer to your previous question
-   - Evaluate their answer with: "Correct ✅" / "Almost 🤏" / "Incorrect ❌"
-   - Give a brief explanation (under 60 words)
-   - Ask ONE follow-up question about the MANDATORY TARGET note above
+   - Evaluate the user's answer: "Correct ✅" / "Almost 🤏" / "Incorrect ❌"
+   - Brief explanation (under 60 words)
+   - ONE follow-up question following the QUESTION RULES above
 
-**OUTPUT FORMAT (STRICT):**
-Return two parts in this exact order:
-1) Your chat response in Markdown (no JSON, no code fences)
-2) The delimiter line: <<METADATA_JSON>> (on its own line, preceded and followed by a blank line)
-3) A single valid JSON object with keys "analysis", "weaknesses", "conclusion"
-
-**Example for isFirstMessage=TRUE:**
-What is the main difference between encryption at rest and encryption in transit, and why are both important for a comprehensive security strategy?
+**OUTPUT FORMAT (required):**
+[Your markdown response — under 120 words]
 
 <<METADATA_JSON>>
-{"analysis":"Session just started, no assessment yet","weaknesses":"","conclusion":"First question asked about security concepts"}
+{"analysis":"...","weaknesses":"...","conclusion":"..."}
 
-**Example for isFirstMessage=FALSE:**
-Correct ✅ Encryption at rest protects stored data...
+Rules: no delimiter elsewhere · valid JSON · respond in the note's language · use **bold** and bullets where helpful
 
-<<METADATA_JSON>>
-{"analysis":"Student understands encryption concepts","weaknesses":"None observed","conclusion":"Good grasp of security fundamentals"}
-
-**Rules:**
-- Do NOT include the delimiter anywhere else
-- The JSON must be valid and use double quotes
-- Keep the chat response under 100 words
-- Respond in the language of the note content (detect it)
-- Use Markdown: **bold**, bullets where helpful
-
-**Context for THIS session:**
-The student has selected ${notes.length} note${notes.length > 1 ? "s" : ""} from category_id: ${categoryId || "mixed categories"}.
-
-Combined Note Content:
-${combinedContent}
+**NOTE CONTENT:**
+${noteContext}
 ${isFirstMessage ? "" : previousInsightsBlock}
 
-**Guidelines for metadata fields:**
-- "analysis": ONLY concepts the student has explicitly demonstrated in their answers (empty if isFirstMessage=TRUE)
-- "weaknesses": ONLY based on incorrect/incomplete answers in THIS session (empty if isFirstMessage=TRUE)
-- "conclusion": Actionable insight based on THIS session's performance only (e.g., "Session started" if isFirstMessage=TRUE)`;
+**Metadata guidelines:**
+- "analysis": concepts the student demonstrated (empty if isFirstMessage=TRUE)
+- "weaknesses": gaps or errors in THIS session (empty if isFirstMessage=TRUE)
+- "conclusion": actionable insight from THIS session ("Session started — first question asked" if isFirstMessage=TRUE)`;
 
 		// Build conversation history
 		const aiMessages: OpenRouterMessage[] = [

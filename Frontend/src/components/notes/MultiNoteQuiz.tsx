@@ -298,6 +298,11 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 	// Determine if we should show the "AI is thinking" indicator
 	const showThinkingIndicator = loading && !isStreaming && !errorState;
 
+	// Derive quiz phase from conversation history (mirrors server-side logic)
+	const assistantTurns = messages.filter((m) => m.role === "assistant").length;
+	const quizPhase: "focused" | "synthesis" =
+		noteIds.length <= 1 || assistantTurns < noteIds.length ? "focused" : "synthesis";
+
 	// Handle close with proper async save
 	const handleClose = async () => {
 		if (isSaving) return;
@@ -386,9 +391,24 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 					<>
 						{/* Header */}
 						<div className="flex justify-between items-center p-4 border-b">
-							<h2 className="text-xl font-semibold">
-								AI Study Session ({noteIds.length} notes)
-							</h2>
+							<div className="flex items-center gap-2">
+								<h2 className="text-xl font-semibold">
+									AI Study Session ({noteIds.length} note{noteIds.length > 1 ? "s" : ""})
+								</h2>
+								{noteIds.length > 1 && (
+									<span
+										className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+											quizPhase === "focused"
+												? "bg-blue-100 text-blue-700"
+												: "bg-purple-100 text-purple-700"
+										}`}
+									>
+										{quizPhase === "focused"
+											? `Note ${Math.min(assistantTurns + 1, noteIds.length)} / ${noteIds.length}`
+											: "Synthesis ✦"}
+									</span>
+								)}
+							</div>
 							<button
 								onClick={handleClose}
 								disabled={isSaving}
