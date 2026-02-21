@@ -36,14 +36,24 @@ export async function GET(_request: NextRequest) {
 		const rawCredits = profile?.credits ?? 0;
 		const isSubscribed = profile?.subscription_status === "active";
 
-		// Subscribers get unlimited premium access — no credit math needed
+		// Subscribers get unlimited premium access.
+		// Return their real credit balance (reserve for after subscription ends)
+		// and actual daily usage so the UI can show accurate numbers.
 		if (isSubscribed) {
+			const lastResetAt = profile?.free_reset_at
+				? new Date(profile.free_reset_at)
+				: null;
+			const todayStart = new Date();
+			todayStart.setHours(0, 0, 0, 0);
+			const isNewDay = !lastResetAt || lastResetAt < todayStart;
+			const freeUsed = isNewDay ? 0 : (profile?.free_used_today ?? 0);
+
 			return NextResponse.json({
 				credits: rawCredits,
 				has_credits: true,
 				free_quota: DAILY_FREE_QUOTA,
-				free_used: 0,
-				free_remaining: DAILY_FREE_QUOTA,
+				free_used: freeUsed,
+				free_remaining: DAILY_FREE_QUOTA - freeUsed,
 				has_byok: !!byokKey,
 				is_subscribed: true,
 				total_available: -1,

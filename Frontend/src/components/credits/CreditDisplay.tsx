@@ -71,12 +71,12 @@ function CompactTrigger({ info }: { info: CreditInfo }) {
 	const isLow = !info.has_byok && !info.is_subscribed && info.credits > 0 && info.credits <= 5;
 	const isFreeOnly = !info.has_byok && !info.is_subscribed && info.credits === 0 && info.free_remaining > 0;
 
-	// Pro subscribers: show crown + "Pro" label
+	// Pro subscribers: show crown + actual credit balance
 	if (info.is_subscribed) {
 		return (
-			<Button variant="ghost" size="sm" className="gap-2">
-				<Crown className="h-4 w-4 text-primary" />
-				<span className="font-medium text-primary">Pro</span>
+			<Button variant="ghost" size="sm" className="gap-2 text-primary">
+				<Crown className="h-4 w-4" />
+				<span className="font-medium">{info.credits}</span>
 			</Button>
 		);
 	}
@@ -159,7 +159,12 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 								: "Available credits"}
 					</p>
 					{info.is_subscribed ? (
-						<p className="text-sm text-primary font-semibold">Active</p>
+						<p className="text-2xl font-bold">
+							{info.credits}
+							<span className="text-sm font-normal text-muted-foreground ml-1">
+								credits
+							</span>
+						</p>
 					) : info.has_byok ? (
 						<p className="text-sm text-muted-foreground">No platform credits used</p>
 					) : (
@@ -219,12 +224,20 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 					<Separator />
 					<div className="space-y-1 text-sm">
 						<div className="flex justify-between">
-							<span className="text-muted-foreground">Premium quizzes</span>
+							<span className="text-muted-foreground">Subscription</span>
+							<span className="font-medium text-green-600 dark:text-green-400">Active</span>
+						</div>
+						<div className="flex justify-between">
+							<span className="text-muted-foreground">Quiz limit</span>
 							<span className="font-medium">No daily limit</span>
 						</div>
 						<div className="flex justify-between">
-							<span className="text-muted-foreground">Models</span>
-							<span className="font-medium">GPT-4o · Mistral 7B</span>
+							<span className="text-muted-foreground">Used today</span>
+							<span className="font-medium">{info.free_used}</span>
+						</div>
+						<div className="flex justify-between">
+							<span className="text-muted-foreground">Credit reserve</span>
+							<span className="font-medium">{info.credits}</span>
 						</div>
 					</div>
 				</>

@@ -163,13 +163,14 @@ export function QuestionGenerator({
 					durationSeconds,
 				}),
 			});
-
-			// Refresh credits after session ends
-			refreshCredits();
 		} catch (error) {
 			console.error("Failed to save study session:", error);
 			hasSavedRef.current = false;
 		} finally {
+			// Always refresh credits on close when a session was started —
+			// the credit was consumed server-side on the first message regardless
+			// of whether session saving succeeded.
+			refreshCredits();
 			setIsSaving(false);
 		}
 	}, [

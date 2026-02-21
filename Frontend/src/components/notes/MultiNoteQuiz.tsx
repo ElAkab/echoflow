@@ -332,12 +332,12 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 					durationSeconds,
 				}),
 			});
-			
-			// Refresh credits after session ends
-			refreshCredits();
 		} catch (error) {
 			console.error("Failed to save study session:", error);
 		} finally {
+			// Always refresh credits on close — credit was consumed server-side
+			// on the first message regardless of whether session saving succeeded.
+			refreshCredits();
 			setIsSaving(false);
 			useFeedbackStore.getState().triggerFeedback();
 			onClose();
