@@ -23,7 +23,7 @@ export async function GET(_request: NextRequest) {
 		const [{ data: profile }, { data: byokKey }] = await Promise.all([
 			supabase
 				.from("profiles")
-				.select("credits, free_used_today, free_reset_at")
+				.select("credits, free_used_today, free_reset_at, subscription_status")
 				.eq("id", user.id)
 				.maybeSingle(),
 			supabase
@@ -34,6 +34,21 @@ export async function GET(_request: NextRequest) {
 		]);
 
 		const credits = profile?.credits ?? 0;
+		const isSubscribed = profile?.subscription_status === "active";
+
+		// Subscribers get unlimited premium access — no credit math needed
+		if (isSubscribed) {
+			return NextResponse.json({
+				credits,
+				has_credits: true,
+				free_quota: DAILY_FREE_QUOTA,
+				free_used: 0,
+				free_remaining: DAILY_FREE_QUOTA,
+				has_byok: !!byokKey,
+				is_subscribed: true,
+				total_available: -1,
+			});
+		}
 
 		// Mirror the daily-reset logic from the consume_credit SQL RPC:
 		// if free_reset_at is from a previous calendar day, treat free_used_today as 0.
@@ -60,6 +75,9 @@ export async function GET(_request: NextRequest) {
 
 			// BYOK
 			has_byok: !!byokKey,
+
+			// Subscription
+			is_subscribed: false,
 
 			// Total usable now (-1 = unlimited with BYOK)
 			total_available: byokKey ? -1 : credits + freeRemaining,

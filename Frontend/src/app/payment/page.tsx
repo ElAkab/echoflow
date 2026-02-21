@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	Coins,
 	Crown,
@@ -8,7 +8,6 @@ import {
 	Check,
 	Zap,
 	Loader2,
-	Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,34 +22,66 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function PaymentPage() {
-	const [loading, setLoading] = useState(false);
+	const [loadingCredits, setLoadingCredits] = useState(false);
+	const [loadingPro, setLoadingPro] = useState(false);
+	const [subscriptionStatus, setSubscriptionStatus] = useState<
+		"inactive" | "active" | "cancelled" | "past_due" | null
+	>(null);
+
+	useEffect(() => {
+		fetch("/api/subscriptions")
+			.then((r) => r.json())
+			.then((data) => setSubscriptionStatus(data.subscription_status ?? "inactive"))
+			.catch(() => setSubscriptionStatus("inactive"));
+	}, []);
 
 	const handleTopUp = async () => {
-		setLoading(true);
-
+		setLoadingCredits(true);
 		try {
 			const response = await fetch("/api/credits/checkout", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 			});
-
 			const data = await response.json();
 
 			if (data.devMode) {
-				alert(`${data.credits} credits added (dev mode)`);
 				window.location.href = "/payment/success?dev_mode=true";
 			} else if (data.url) {
 				window.location.href = data.url;
 			} else {
-				alert("Error purchasing credits");
+				console.error("Credits checkout error:", data);
 			}
 		} catch (error) {
 			console.error("Top-up error:", error);
-			alert("An error occurred");
 		} finally {
-			setLoading(false);
+			setLoadingCredits(false);
 		}
 	};
+
+	const handleSubscribe = async () => {
+		setLoadingPro(true);
+		try {
+			const response = await fetch("/api/subscriptions", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+			const data = await response.json();
+
+			if (data.devMode) {
+				setSubscriptionStatus("active");
+			} else if (data.url) {
+				window.location.href = data.url;
+			} else {
+				console.error("Subscription error:", data);
+			}
+		} catch (error) {
+			console.error("Subscribe error:", error);
+		} finally {
+			setLoadingPro(false);
+		}
+	};
+
+	const isProActive = subscriptionStatus === "active";
 
 	return (
 		<div className="max-w-4xl mx-auto space-y-8">
@@ -64,66 +95,81 @@ export default function PaymentPage() {
 
 			{/* Two Options */}
 			<div className="grid gap-6 md:grid-cols-2">
-				{/* Pro Subscription — Coming Soon */}
-				<Card className="relative flex flex-col opacity-70 border-dashed">
-					<Badge
-						variant="secondary"
-						className="absolute -top-2 left-1/2 -translate-x-1/2 bg-muted text-muted-foreground"
-					>
-						Coming Soon
-					</Badge>
+				{/* Pro Subscription */}
+				<Card
+					className={`relative flex flex-col ${isProActive ? "border-primary shadow-lg" : ""}`}
+				>
+					{isProActive && (
+						<Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-green-600">
+							Active
+						</Badge>
+					)}
 					<CardHeader className="pb-4">
 						<div className="flex items-center gap-2 mb-1">
-							<Crown className="h-5 w-5 text-muted-foreground" />
-							<CardTitle className="text-xl text-muted-foreground">
-								Pro Plan
-							</CardTitle>
+							<Crown className="h-5 w-5 text-primary" />
+							<CardTitle className="text-xl">Pro Plan</CardTitle>
 						</div>
 						<CardDescription>For regular users</CardDescription>
 					</CardHeader>
 					<CardContent className="flex-1 space-y-4">
 						<div className="text-center">
-							<div className="text-4xl font-bold text-muted-foreground">€7</div>
+							<div className="text-4xl font-bold">€7</div>
 							<div className="text-sm text-muted-foreground">per month</div>
 						</div>
-						<ul className="space-y-2 text-sm text-muted-foreground">
+						<ul className="space-y-2 text-sm">
 							<li className="flex items-center gap-2">
-								<Check className="h-4 w-4" />
+								<Check className="h-4 w-4 text-green-500" />
 								<span>
-									<strong>200 credits</strong> premium per month
+									<strong>Unlimited</strong> premium quizzes
 								</span>
 							</li>
 							<li className="flex items-center gap-2">
-								<Check className="h-4 w-4" />
+								<Check className="h-4 w-4 text-green-500" />
 								<span>GPT-4o &amp; Mistral 7B models</span>
 							</li>
 							<li className="flex items-center gap-2">
-								<Check className="h-4 w-4" />
+								<Check className="h-4 w-4 text-green-500" />
 								<span>Priority support</span>
 							</li>
 							<li className="flex items-center gap-2">
-								<Check className="h-4 w-4" />
+								<Check className="h-4 w-4 text-green-500" />
 								<span>Cancel anytime</span>
 							</li>
 						</ul>
 					</CardContent>
 					<CardFooter>
-						<Button className="w-full" variant="outline" disabled>
-							<Clock className="mr-2 h-4 w-4" />
-							Available Soon
-						</Button>
+						{isProActive ? (
+							<Button className="w-full" variant="outline" disabled>
+								<Check className="mr-2 h-4 w-4" />
+								Subscribed
+							</Button>
+						) : (
+							<Button
+								className="w-full cursor-pointer"
+								variant="outline"
+								onClick={handleSubscribe}
+								disabled={loadingPro || subscriptionStatus === null}
+							>
+								{loadingPro ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Crown className="mr-2 h-4 w-4" />
+								)}
+								Subscribe — €7/mo
+							</Button>
+						)}
 					</CardFooter>
 				</Card>
 
 				{/* Top-up Credits */}
 				<Card className="relative flex flex-col border-primary shadow-lg">
 					<Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
-						Available Now
+						Pay-as-you-go
 					</Badge>
 					<CardHeader className="pb-4">
 						<div className="flex items-center gap-2 mb-1">
 							<Coins className="h-5 w-5 text-primary" />
-							<CardTitle className="text-xl">Pay-as-you-go</CardTitle>
+							<CardTitle className="text-xl">Credits</CardTitle>
 						</div>
 						<CardDescription>For occasional use</CardDescription>
 					</CardHeader>
@@ -160,9 +206,9 @@ export default function PaymentPage() {
 							className="w-full cursor-pointer"
 							size="lg"
 							onClick={handleTopUp}
-							disabled={loading}
+							disabled={loadingCredits}
 						>
-							{loading ? (
+							{loadingCredits ? (
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 							) : (
 								<Coins className="mr-2 h-4 w-4" />

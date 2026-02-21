@@ -86,6 +86,7 @@ interface ServerAuditLogOptions extends AuditLogOptions {
   request?: Request;
   ipAddress?: string;
   userAgent?: string;
+  userId?: string; // Override: if not provided, resolved from supabase.auth.getUser()
 }
 
 /**
@@ -139,9 +140,17 @@ export async function auditLogServer(
       ipAddress = ipAddress || forwardedFor?.split(',')[0] || 'unknown';
     }
 
+    // Resolve user_id: use explicit override, else fetch from session
+    let userId = options.userId;
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id;
+    }
+
     const { error } = await supabase
       .from('audit_logs')
       .insert({
+        user_id: userId,
         action: options.action,
         resource_type: options.resourceType,
         resource_id: options.resourceId,

@@ -15,6 +15,7 @@ N/A - Greenfield project.
 | 2026-01-23 | 0.1 | Initial Architecture Draft | Winston (Architect) |
 | 2026-02-01 | 0.2 | Finalized quota strategy, RLS policies, and migration structure | Winston (Architect) |
 | 2026-02-20 | 1.0 | Top-up only model: profiles.credits replaces user_credits, processed_stripe_events added, subscription model removed | Claude (Dev) |
+| 2026-02-21 | 1.1 | Pro subscription re-enabled: subscription_status + stripe_subscription_id added to profiles, consume_credit/add_credits RPCs fixed (PROFILES→PROFILE audit CHECK), webhook handlers for subscription events | Claude (Dev) |
 
 ## High Level Architecture
 
@@ -101,17 +102,19 @@ graph TD
 - `avatar_url` (String): URL image profil.
 - `credits` (Int, default 0): Solde de crédits achetés (top-up). **N'expirent jamais.**
 - `stripe_customer_id` (String, nullable): Stripe customer ID, persisté après le premier achat.
+- `stripe_subscription_id` (String, nullable): Stripe subscription ID (`sub_...`). Lié aux événements webhook d'abonnement.
+- `subscription_status` (Text, default 'inactive'): État de l'abonnement Pro. Valeurs: `inactive | active | cancelled | past_due`. Mis à jour par le webhook.
 - `free_used_today` (Int, default 0): Nombre de crédits gratuits consommés aujourd'hui.
 - `free_reset_at` (Timestamp): Prochain reset du quota gratuit (minuit UTC).
 - `created_at` (Timestamp): Date d'inscription.
 - `updated_at` (Timestamp): Dernière modification.
 
-**Quota Strategy (Top-up + Free Quota):**
-- **Priority model (consume_credit RPC):** BYOK (unlimited) → purchased `credits` → free daily quota (20/day)
+**Quota Strategy (Subscription + Top-up + Free Quota):**
+- **Priority model (consume_credit RPC):** BYOK (unlimited) → active subscription (unlimited, no deduction) → purchased `credits` → free daily quota (20/day)
+- **Pro Subscription:** €7/mois = accès premium illimité. Géré via Stripe Checkout (mode subscription). Le webhook synchronise `subscription_status`.
 - **Free Tier:** 20 questions/jour avec modèles gratuits (Llama, Qwen). Reset automatique via `free_reset_at`.
 - **Top-up:** €3 = 30 crédits premium (GPT-4o, Mistral 7B). Jamais d'expiration.
 - **BYOK:** Clé OpenRouter personnelle → illimité, aucun crédit consommé.
-- **Supprimé :** Plan Pro (abonnement mensuel) — `/api/subscriptions` retourne HTTP 410.
 
 ### processed_stripe_events
 **Purpose:** Idempotency table pour les webhooks Stripe. Remplace le `Set<string>` en mémoire (anti-pattern serverless).

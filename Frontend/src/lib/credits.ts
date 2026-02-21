@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const DAILY_FREE_QUOTA = 20;
 
-export type CreditSource = "byok" | "purchased" | "free_quota";
+export type CreditSource = "byok" | "subscription" | "purchased" | "free_quota";
 
 export interface CreditCheckResult {
 	hasCredits: boolean;
@@ -49,10 +49,10 @@ export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 		};
 	}
 
-	// 2. Read credits + free quota from profiles
+	// 2. Read credits + free quota + subscription status from profiles
 	const { data: profile } = await supabase
 		.from("profiles")
-		.select("credits, free_used_today, free_reset_at")
+		.select("credits, free_used_today, free_reset_at, subscription_status")
 		.eq("id", userId)
 		.maybeSingle();
 
@@ -63,6 +63,17 @@ export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 			canUsePremium: false,
 			source: "free_quota",
 			premiumRemaining: 0,
+			freeRemaining: DAILY_FREE_QUOTA,
+		};
+	}
+
+	// 2b. Active subscriber → unlimited premium (no credit deduction)
+	if (profile.subscription_status === "active") {
+		return {
+			hasCredits: true,
+			canUsePremium: true,
+			source: "subscription",
+			premiumRemaining: -1,
 			freeRemaining: DAILY_FREE_QUOTA,
 		};
 	}

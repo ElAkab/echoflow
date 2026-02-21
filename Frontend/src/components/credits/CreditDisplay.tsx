@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Coins, Plus, Infinity, Gift } from "lucide-react";
+import { Coins, Plus, Infinity, Gift, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -29,7 +29,8 @@ export function CreditDisplay({ variant = "compact" }: CreditDisplayProps) {
 			if (!document.hidden) refreshCredits();
 		};
 		document.addEventListener("visibilitychange", handleVisibility);
-		return () => document.removeEventListener("visibilitychange", handleVisibility);
+		return () =>
+			document.removeEventListener("visibilitychange", handleVisibility);
 	}, [refreshCredits]);
 
 	if (isLoading) {
@@ -66,11 +67,13 @@ export function CreditDisplay({ variant = "compact" }: CreditDisplayProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CompactTrigger({ info }: { info: CreditInfo }) {
-	const isEmpty = !info.has_byok && info.total_available === 0;
-	const isLow = !info.has_byok && info.credits > 0 && info.credits <= 5;
-	const isFreeOnly = !info.has_byok && info.credits === 0 && info.free_remaining > 0;
+	const isUnlimited = info.has_byok || info.is_subscribed;
+	const isEmpty = !isUnlimited && info.total_available === 0;
+	const isLow = !isUnlimited && info.credits > 0 && info.credits <= 5;
+	const isFreeOnly =
+		!isUnlimited && info.credits === 0 && info.free_remaining > 0;
 
-	const displayValue = info.has_byok
+	const displayValue = isUnlimited
 		? "∞"
 		: info.credits > 0
 			? info.credits
@@ -82,12 +85,16 @@ function CompactTrigger({ info }: { info: CreditInfo }) {
 			size="sm"
 			className={`gap-2 ${isLow ? "text-yellow-500" : ""} ${isEmpty ? "text-destructive" : ""}`}
 		>
-			{info.has_byok ? (
+			{info.is_subscribed ? (
+				<Crown className="h-4 w-4 text-primary" />
+			) : info.has_byok ? (
 				<Infinity className="h-4 w-4" />
 			) : isFreeOnly ? (
 				<Gift className="h-4 w-4 text-green-500" />
 			) : (
-				<Coins className={`h-4 w-4 ${isEmpty ? "text-destructive" : isLow ? "text-yellow-500" : ""}`} />
+				<Coins
+					className={`h-4 w-4 ${isEmpty ? "text-destructive" : isLow ? "text-yellow-500" : ""}`}
+				/>
 			)}
 			<span className="font-medium">{displayValue}</span>
 			{isFreeOnly && (
@@ -98,11 +105,13 @@ function CompactTrigger({ info }: { info: CreditInfo }) {
 }
 
 function CreditPopoverContent({ info }: { info: CreditInfo }) {
-	const isEmpty = !info.has_byok && info.total_available === 0;
-	const isLow = !info.has_byok && info.credits > 0 && info.credits <= 5;
-	const isFreeOnly = !info.has_byok && info.credits === 0 && info.free_remaining > 0;
+	const isUnlimited = info.has_byok || info.is_subscribed;
+	const isEmpty = !isUnlimited && info.total_available === 0;
+	const isLow = !isUnlimited && info.credits > 0 && info.credits <= 5;
+	const isFreeOnly =
+		!isUnlimited && info.credits === 0 && info.free_remaining > 0;
 
-	const displayValue = info.has_byok
+	const displayValue = isUnlimited
 		? "∞"
 		: info.credits > 0
 			? info.credits
@@ -114,7 +123,7 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 			<div className="flex items-center gap-3">
 				<div
 					className={`p-2 rounded-full ${
-						info.has_byok
+						isUnlimited
 							? "bg-primary/10"
 							: isEmpty
 								? "bg-destructive/10"
@@ -125,7 +134,9 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 										: "bg-primary/10"
 					}`}
 				>
-					{info.has_byok ? (
+					{info.is_subscribed ? (
+						<Crown className="h-5 w-5 text-primary" />
+					) : info.has_byok ? (
 						<Infinity className="h-5 w-5 text-primary" />
 					) : isFreeOnly ? (
 						<Gift className="h-5 w-5 text-green-500" />
@@ -137,7 +148,11 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 				</div>
 				<div className="flex-1">
 					<p className="text-sm font-medium">
-						{info.has_byok ? "Unlimited Questions" : "Study Questions"}
+						{info.is_subscribed
+							? "Pro Plan"
+							: info.has_byok
+								? "Unlimited Questions"
+								: "Study Questions"}
 					</p>
 					<p className="text-2xl font-bold">
 						{displayValue}
@@ -151,7 +166,7 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 			</div>
 
 			{/* Details */}
-			{!info.has_byok && (
+			{!isUnlimited && (
 				<>
 					<Separator />
 					<div className="space-y-2 text-sm">
@@ -171,7 +186,8 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 
 					{isEmpty && (
 						<p className="text-sm text-destructive">
-							No credits left today. Buy credits or wait until midnight for your daily free quota.
+							No credits left today. Buy credits or wait until midnight for your
+							daily free quota.
 						</p>
 					)}
 					{isFreeOnly && (
@@ -187,18 +203,26 @@ function CreditPopoverContent({ info }: { info: CreditInfo }) {
 				</>
 			)}
 
-			{info.has_byok && (
+			{info.is_subscribed && (
+				<p className="text-sm text-muted-foreground">
+					Pro subscription active — unlimited premium quizzes.
+				</p>
+			)}
+
+			{info.has_byok && !info.is_subscribed && (
 				<p className="text-sm text-muted-foreground">
 					Using your own OpenRouter key — no platform credits consumed.
 				</p>
 			)}
 
-			<Button className="w-full gap-2" asChild>
-				<a href="/payment">
-					<Plus className="h-4 w-4" />
-					Buy Credits
-				</a>
-			</Button>
+			{!info.is_subscribed && (
+				<Button className="w-full gap-2 cursor-pointer" asChild>
+					<a href="/payment">
+						<Plus className="h-4 w-4" />
+						Buy Credits
+					</a>
+				</Button>
+			)}
 		</div>
 	);
 }

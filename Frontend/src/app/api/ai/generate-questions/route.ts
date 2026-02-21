@@ -214,7 +214,8 @@ ${isFirstMessage || !previousConclusion ? "" : `\n\nPrevious Session Insight (us
 		}
 
 		// Step 4: Consume credit ONLY on first message of session
-		if (isFirstMessage && creditCheck.source !== "byok") {
+		// Skip for BYOK (own key) and subscriptions (unlimited plan)
+		if (isFirstMessage && creditCheck.source !== "byok" && creditCheck.source !== "subscription") {
 			const consumptionResult = await consumeCredit(
 				user.id,
 				creditCheck.canUsePremium,

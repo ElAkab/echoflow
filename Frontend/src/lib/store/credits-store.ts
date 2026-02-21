@@ -13,7 +13,10 @@ export interface CreditInfo {
 	// BYOK
 	has_byok: boolean;
 
-	// Total usable right now (-1 = unlimited with BYOK)
+	// Pro subscription (unlimited premium)
+	is_subscribed: boolean;
+
+	// Total usable right now (-1 = unlimited with BYOK or subscription)
 	total_available: number;
 }
 

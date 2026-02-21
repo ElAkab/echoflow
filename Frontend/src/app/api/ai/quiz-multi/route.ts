@@ -295,7 +295,8 @@ ${isFirstMessage ? "" : previousInsightsBlock}
 		}
 
 		// Consume credit ONLY on first message of session (not on subsequent messages)
-		if (isFirstMessage && creditCheck.source !== "byok") {
+		// Skip for BYOK (own key) and subscriptions (unlimited plan)
+		if (isFirstMessage && creditCheck.source !== "byok" && creditCheck.source !== "subscription") {
 			const consumptionResult = await consumeCredit(user.id, creditCheck.canUsePremium);
 			if (!consumptionResult.success) {
 				console.error("Failed to consume credit:", consumptionResult.message);
