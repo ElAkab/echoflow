@@ -59,9 +59,7 @@ export function SubscriptionCard() {
 
 			if (res.ok || data.devMode) {
 				setInfo((prev) =>
-					prev
-						? { ...prev, cancel_at_period_end: true }
-						: null,
+					prev ? { ...prev, cancel_at_period_end: true } : null,
 				);
 			} else {
 				console.error("Cancel error:", data.error);
@@ -102,7 +100,10 @@ export function SubscriptionCard() {
 function StatusBadge({ info }: { info: SubscriptionInfo }) {
 	if (info.cancel_at_period_end) {
 		return (
-			<Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+			<Badge
+				variant="secondary"
+				className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+			>
 				Cancelling
 			</Badge>
 		);
@@ -136,9 +137,9 @@ function SubscriptionDetails({
 					standard models.
 				</p>
 				<Button variant="outline" size="sm" asChild>
-					<a href="/payment">
+					<a href="/payment" className="dark:hover:text-primary">
 						<Crown className="mr-2 h-4 w-4" />
-						Upgrade to Pro — €7/mo
+						Upgrade to Pro — €7/month
 					</a>
 				</Button>
 			</div>
@@ -237,7 +238,11 @@ function SubscriptionDetails({
 
 			<AlertDialog>
 				<AlertDialogTrigger asChild>
-					<Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/5">
+					<Button
+						variant="outline"
+						size="sm"
+						className="text-destructive border-destructive/30 hover:bg-destructive/5"
+					>
 						Cancel subscription
 					</Button>
 				</AlertDialogTrigger>

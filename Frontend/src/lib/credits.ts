@@ -78,15 +78,20 @@ export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 		};
 	}
 
-	const credits = profile.credits ?? 0;
+	let credits = profile.credits ?? 0;
 
-	// Mirror the daily-reset logic from the consume_credit SQL RPC:
-	// if free_reset_at is from a previous calendar day, treat free_used_today as 0.
+	// Mirror the daily top-up + reset logic from the consume_credit SQL RPC.
 	const lastResetAt = profile.free_reset_at ? new Date(profile.free_reset_at) : null;
 	const todayStart = new Date();
 	todayStart.setHours(0, 0, 0, 0);
-	const effectiveFreeUsed =
-		!lastResetAt || lastResetAt < todayStart ? 0 : (profile.free_used_today ?? 0);
+	const isNewDay = !lastResetAt || lastResetAt < todayStart;
+
+	if (isNewDay && credits < DAILY_FREE_QUOTA) {
+		// Daily top-up: user will receive at least 20 credits when they next use the app
+		credits = DAILY_FREE_QUOTA;
+	}
+
+	const effectiveFreeUsed = isNewDay ? 0 : (profile.free_used_today ?? 0);
 	const freeRemaining = Math.max(0, DAILY_FREE_QUOTA - effectiveFreeUsed);
 	const source: CreditSource = credits > 0 ? "purchased" : "free_quota";
 

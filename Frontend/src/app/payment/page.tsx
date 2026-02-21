@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-	Coins,
-	Crown,
-	Sparkles,
-	Check,
-	Zap,
-	Loader2,
-} from "lucide-react";
+import { Coins, Crown, Sparkles, Check, Zap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -31,7 +24,9 @@ export default function PaymentPage() {
 	useEffect(() => {
 		fetch("/api/subscriptions")
 			.then((r) => r.json())
-			.then((data) => setSubscriptionStatus(data.subscription_status ?? "inactive"))
+			.then((data) =>
+				setSubscriptionStatus(data.subscription_status ?? "inactive"),
+			)
 			.catch(() => setSubscriptionStatus("inactive"));
 	}, []);
 
@@ -145,7 +140,7 @@ export default function PaymentPage() {
 							</Button>
 						) : (
 							<Button
-								className="w-full cursor-pointer"
+								className="w-full cursor-pointer dark:hover:text-primary"
 								variant="outline"
 								onClick={handleSubscribe}
 								disabled={loadingPro || subscriptionStatus === null}
@@ -155,7 +150,7 @@ export default function PaymentPage() {
 								) : (
 									<Crown className="mr-2 h-4 w-4" />
 								)}
-								Subscribe — €7/mo
+								Subscribe — €7/month
 							</Button>
 						)}
 					</CardFooter>

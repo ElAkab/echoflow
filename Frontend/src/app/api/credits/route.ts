@@ -33,13 +33,13 @@ export async function GET(_request: NextRequest) {
 				.maybeSingle(),
 		]);
 
-		const credits = profile?.credits ?? 0;
+		const rawCredits = profile?.credits ?? 0;
 		const isSubscribed = profile?.subscription_status === "active";
 
 		// Subscribers get unlimited premium access — no credit math needed
 		if (isSubscribed) {
 			return NextResponse.json({
-				credits,
+				credits: rawCredits,
 				has_credits: true,
 				free_quota: DAILY_FREE_QUOTA,
 				free_used: 0,
@@ -50,17 +50,21 @@ export async function GET(_request: NextRequest) {
 			});
 		}
 
-		// Mirror the daily-reset logic from the consume_credit SQL RPC:
-		// if free_reset_at is from a previous calendar day, treat free_used_today as 0.
+		// Mirror the daily top-up + reset logic from the consume_credit SQL RPC.
 		const lastResetAt = profile?.free_reset_at
 			? new Date(profile.free_reset_at)
 			: null;
 		const todayStart = new Date();
 		todayStart.setHours(0, 0, 0, 0);
-		const effectiveFreeUsed =
-			!lastResetAt || lastResetAt < todayStart
-				? 0
-				: (profile?.free_used_today ?? 0);
+		const isNewDay = !lastResetAt || lastResetAt < todayStart;
+
+		// Daily top-up: if new day and credits < 20, effective balance is 20
+		let credits = rawCredits;
+		if (isNewDay && credits < DAILY_FREE_QUOTA) {
+			credits = DAILY_FREE_QUOTA;
+		}
+
+		const effectiveFreeUsed = isNewDay ? 0 : (profile?.free_used_today ?? 0);
 		const freeRemaining = Math.max(0, DAILY_FREE_QUOTA - effectiveFreeUsed);
 
 		return NextResponse.json({
