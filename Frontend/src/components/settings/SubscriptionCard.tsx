@@ -231,7 +231,7 @@ function SubscriptionDetails({
 				<div className="flex justify-between py-1.5">
 					<span className="text-muted-foreground">Access</span>
 					<span className="font-medium text-green-600 dark:text-green-400">
-						Unlimited premium quizzes
+						Premium quizzes — no daily limit
 					</span>
 				</div>
 			</div>

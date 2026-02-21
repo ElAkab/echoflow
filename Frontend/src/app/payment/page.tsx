@@ -20,13 +20,15 @@ export default function PaymentPage() {
 	const [subscriptionStatus, setSubscriptionStatus] = useState<
 		"inactive" | "active" | "cancelled" | "past_due" | null
 	>(null);
+	const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
 
 	useEffect(() => {
 		fetch("/api/subscriptions")
 			.then((r) => r.json())
-			.then((data) =>
-				setSubscriptionStatus(data.subscription_status ?? "inactive"),
-			)
+			.then((data) => {
+				setSubscriptionStatus(data.subscription_status ?? "inactive");
+				setCancelAtPeriodEnd(data.cancel_at_period_end ?? false);
+			})
 			.catch(() => setSubscriptionStatus("inactive"));
 	}, []);
 
@@ -76,7 +78,10 @@ export default function PaymentPage() {
 		}
 	};
 
-	const isProActive = subscriptionStatus === "active";
+	// Fully active = subscribed AND NOT pending cancellation
+	const isProActive = subscriptionStatus === "active" && !cancelAtPeriodEnd;
+	// Cancelling = subscribed but will end at period end
+	const isProCancelling = subscriptionStatus === "active" && cancelAtPeriodEnd;
 
 	return (
 		<div className="max-w-4xl mx-auto space-y-8">
@@ -99,6 +104,11 @@ export default function PaymentPage() {
 							Active
 						</Badge>
 					)}
+					{isProCancelling && (
+						<Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-yellow-500 text-white">
+							Cancelling
+						</Badge>
+					)}
 					<CardHeader className="pb-4">
 						<div className="flex items-center gap-2 mb-1">
 							<Crown className="h-5 w-5 text-primary" />
@@ -114,9 +124,7 @@ export default function PaymentPage() {
 						<ul className="space-y-2 text-sm">
 							<li className="flex items-center gap-2">
 								<Check className="h-4 w-4 text-green-500" />
-								<span>
-									<strong>Unlimited</strong> premium quizzes
-								</span>
+								<span>Premium quizzes — no daily limit</span>
 							</li>
 							<li className="flex items-center gap-2">
 								<Check className="h-4 w-4 text-green-500" />
@@ -132,7 +140,7 @@ export default function PaymentPage() {
 							</li>
 						</ul>
 					</CardContent>
-					<CardFooter>
+					<CardFooter className="flex flex-col gap-2">
 						{isProActive ? (
 							<Button className="w-full" variant="outline" disabled>
 								<Check className="mr-2 h-4 w-4" />
@@ -150,8 +158,13 @@ export default function PaymentPage() {
 								) : (
 									<Crown className="mr-2 h-4 w-4" />
 								)}
-								Subscribe — €7/month
+								{isProCancelling ? "Resubscribe — €7/month" : "Subscribe — €7/month"}
 							</Button>
+						)}
+						{isProCancelling && (
+							<p className="text-xs text-muted-foreground text-center">
+								Your access remains active until the end of the billing period.
+							</p>
 						)}
 					</CardFooter>
 				</Card>
