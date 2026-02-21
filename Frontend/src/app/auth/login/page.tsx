@@ -11,14 +11,16 @@ export default function LoginPage() {
 	const [message, setMessage] = useState("");
 	const [loading, setLoading] = useState(false);
 
-	async function handleGoogleSignIn() {
+	async function handleGoogleSignIn(e: React.FormEvent) {
+		e.preventDefault();
 		setLoading(true);
 		await signInWithGoogle();
 	}
 
-	async function handleEmailSignIn(formData: FormData) {
+	async function handleEmailSignIn(e: React.FormEvent<HTMLFormElement>) {
+		e.preventDefault();
 		setLoading(true);
-		const result = await signInWithEmail(formData);
+		const result = await signInWithEmail(new FormData(e.currentTarget));
 
 		if (result.error) {
 			setMessage(result.error);
@@ -28,9 +30,10 @@ export default function LoginPage() {
 		setLoading(false);
 	}
 
-	async function handleDemoSignIn(formData: FormData) {
+	async function handleDemoSignIn(e: React.FormEvent<HTMLFormElement>) {
+		e.preventDefault();
 		setLoading(true);
-		const password = formData.get("demoPassword") as string;
+		const password = new FormData(e.currentTarget).get("demoPassword") as string;
 		const result = await signInWithDemo(password);
 
 		if (result?.error) {
@@ -60,7 +63,7 @@ export default function LoginPage() {
 				)}
 
 				<div className="space-y-4">
-					<form action={handleGoogleSignIn}>
+					<form onSubmit={handleGoogleSignIn}>
 						<button
 							type="submit"
 							disabled={loading}
@@ -107,7 +110,7 @@ export default function LoginPage() {
 						</div>
 					</div>
 
-					<form action={handleEmailSignIn} className="space-y-4">
+					<form onSubmit={handleEmailSignIn} className="space-y-4">
 						<input
 							type="email"
 							name="email"
@@ -126,7 +129,7 @@ export default function LoginPage() {
 					</form>
 
 					{/* Demo Account */}
-					<form action={handleDemoSignIn} className="space-y-3">
+					<form onSubmit={handleDemoSignIn} className="space-y-3">
 						<div className="relative flex justify-center text-xs">
 							<span className="px-4 dark:bg-[#172130] text-gray-400">
 								For testers only
