@@ -1,7 +1,4 @@
-import {
-	streamOpenRouterResponse,
-	METADATA_DELIMITER,
-} from "@/app/api/ai/_utils/openrouter-stream";
+import { streamOpenRouterResponse } from "@/app/api/ai/_utils/openrouter-stream";
 import {
 	routeOpenRouterRequest,
 	type OpenRouterMessage,
@@ -76,7 +73,8 @@ export async function POST(request: NextRequest) {
 				{
 					error: "Insufficient credits",
 					code: "credits_exhausted",
-					message: "You don't have enough credits. Buy more Study Questions or use your own OpenRouter key.",
+					message:
+						"You don't have enough credits. Buy more Study Questions or use your own OpenRouter key.",
 				},
 				{ status: 403 },
 			);
@@ -134,7 +132,12 @@ ${isFirstMessage ? "→ This is the START of a new quiz session. You MUST ask a 
 
 2. IF isFirstMessage IS FALSE:
    - The user has provided an answer to your previous question
-   - Evaluate their answer with: "Correct ✅" / "Almost 🤏" / "Incorrect ❌"
+   - Evaluate the user’s answer using one of the following statuses :
+		"Correct ✅" → The answer is accurate and relevant.
+		"Almost 🤏" → The answer is partially correct or incomplete.
+		"Incorrect ❌" → The answer is wrong.
+		"Out of scope 🔄" → The answer does not address the question asked.
+		"It's ok 😉" → The user explicitly states that they do not know the answer.
    - Give a brief explanation (under 60 words)
    - Ask ONE thoughtful follow-up question
 
@@ -200,7 +203,7 @@ ${isFirstMessage || !previousConclusion ? "" : `\n\nPrevious Session Insight (us
 				canUsePremium: creditCheck.canUsePremium,
 				source: creditCheck.source,
 			});
-			
+
 			return NextResponse.json(
 				{
 					error: aiResult.error,
@@ -212,7 +215,10 @@ ${isFirstMessage || !previousConclusion ? "" : `\n\nPrevious Session Insight (us
 
 		// Step 4: Consume credit ONLY on first message of session
 		if (isFirstMessage && creditCheck.source !== "byok") {
-			const consumptionResult = await consumeCredit(user.id, creditCheck.canUsePremium);
+			const consumptionResult = await consumeCredit(
+				user.id,
+				creditCheck.canUsePremium,
+			);
 			if (!consumptionResult.success) {
 				console.error("Failed to consume credit:", consumptionResult.message);
 			}
