@@ -116,10 +116,10 @@ export async function POST(_request: NextRequest) {
 			line_items: [{ price: priceId, quantity: 1 }],
 			mode: "subscription",
 			success_url: `${
-				process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+				process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 			}/payment/success?subscription=true&session_id={CHECKOUT_SESSION_ID}`,
 			cancel_url: `${
-				process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+				process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 			}/payment`,
 			metadata: { user_id: user.id, type: "subscription" },
 			customer_email: user.email,
