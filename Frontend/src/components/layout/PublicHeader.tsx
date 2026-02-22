@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Sheet,
@@ -38,7 +38,10 @@ export function PublicHeader() {
 			</div>
 
 			{/* Desktop nav */}
-			<nav className="hidden sm:flex items-center space-x-6" aria-label="Main navigation">
+			<nav
+				className="hidden sm:flex items-center space-x-6 "
+				aria-label="Main navigation"
+			>
 				{navLinks.map((link) => (
 					<NavLink key={link.href} href={link.href}>
 						{link.label}
@@ -58,19 +61,14 @@ export function PublicHeader() {
 						<Menu className="h-5 w-5" />
 					</Button>
 				</SheetTrigger>
-				<SheetContent side="right" className="w-64 p-0">
-					<SheetHeader className="p-6 pb-4 flex flex-row items-center justify-between">
+				<SheetContent
+					side="right"
+					className="w-64 p-0 bg-gradient-to-b dark:from-gray-900/10 dark:to-gray-800/10 backdrop-blur-sm border-b border-gray-700/50"
+				>
+					<SheetHeader className="p-6 pb-4 flex flex-row items-center justify-between ">
 						<SheetTitle className="text-xl font-bold text-primary">
-							Echoflow
+							Navigation
 						</SheetTitle>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => setOpen(false)}
-							aria-label="Close navigation menu"
-						>
-							<X className="h-5 w-5" />
-						</Button>
 					</SheetHeader>
 					<nav
 						className="flex flex-col px-4 gap-1"
