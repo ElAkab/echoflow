@@ -19,6 +19,29 @@ export const metadata: Metadata = {
 		icon: "/images/echoflow_logo.ico",
 		apple: "/images/echoflow_logo.ico",
 	},
+	openGraph: {
+		title: "Echoflow - AI-Powered Learning",
+		description:
+			"Master your knowledge with AI-generated quizzes from your notes",
+		url: process.env.NEXT_PUBLIC_APP_URL,
+		siteName: "Echoflow",
+		images: [
+			{
+				url: "/images/thumbnail.png",
+				width: 1920,
+				height: 1080,
+				alt: "Echoflow - AI-Powered Learning",
+			},
+		],
+		type: "website",
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "Echoflow - AI-Powered Learning",
+		description:
+			"Master your knowledge with AI-generated quizzes from your notes",
+		images: ["/images/thumbnail.png"],
+	},
 };
 
 // Root layout component that wraps all pages in the application.
