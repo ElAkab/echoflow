@@ -5,19 +5,19 @@ export default function HomePage() {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8 md:p-24 bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
 			<div className="text-center max-w-4xl">
-				<div className="relative w-fit mx-auto mb-8">
-					<div className="flex items-center justify-center gap-3">
+				<div className="relative w-fit mx-auto mb-4">
+					<div className="flex items-center justify-center gap-1 pl-4">
 						<span className="text-5xl md:text-6xl font-bold bg-gradient-to-tr dark:from-primary to-[#053f61] bg-clip-text text-transparent">
 							Echoflow
 						</span>
 						<img
 							src="/images/echoflow_logo.png"
 							alt="Echoflow Logo"
-							className="h-28 w-28"
+							className="h-24 w-24"
 						/>
 					</div>
-					<div className="flex justify-center mt-1 md:contents">
-						<Badge className="md:absolute md:-top-3 md:right-0 md:z-10 px-2 py-0.5 text-[10px] tracking-widest font-semibold bg-primary/10 text-primary border border-primary/30 dark:bg-primary/20 dark:border-primary/40 hover:bg-primary/10">
+					<div className="flex justify-center md:contents">
+						<Badge className="md:absolute md:-top-8 md:-right-3 md:z-10 px-4 -mt-2 py-0.5 text-[12px] tracking-widest font-semibold bg-primary/10 text-primary border border-primary/30 dark:bg-primary/20 dark:border-primary/40 hover:bg-primary/10">
 							BETA
 						</Badge>
 					</div>

@@ -5,7 +5,9 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 export default function ContactPage() {
-	const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+	const [status, setStatus] = useState<
+		"idle" | "loading" | "success" | "error"
+	>("idle");
 	const [errorMessage, setErrorMessage] = useState("");
 
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -17,7 +19,8 @@ export default function ContactPage() {
 		const data = {
 			name: (form.elements.namedItem("name") as HTMLInputElement).value,
 			email: (form.elements.namedItem("email") as HTMLInputElement).value,
-			message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
+			message: (form.elements.namedItem("message") as HTMLTextAreaElement)
+				.value,
 		};
 
 		try {
@@ -30,7 +33,9 @@ export default function ContactPage() {
 			const json = await res.json();
 
 			if (!res.ok) {
-				setErrorMessage(json.error ?? "Something went wrong. Please try again.");
+				setErrorMessage(
+					json.error ?? "Something went wrong. Please try again.",
+				);
 				setStatus("error");
 				return;
 			}
@@ -38,7 +43,9 @@ export default function ContactPage() {
 			setStatus("success");
 			form.reset();
 		} catch {
-			setErrorMessage("Network error. Please check your connection and try again.");
+			setErrorMessage(
+				"Network error. Please check your connection and try again.",
+			);
 			setStatus("error");
 		}
 	}
@@ -60,10 +67,12 @@ export default function ContactPage() {
 				{status === "success" ? (
 					<div className="flex flex-col items-center gap-4 py-16 text-center">
 						<CheckCircle2 className="h-16 w-16 text-green-500" />
-						<h3 className="text-2xl font-semibold text-gray-100">Message sent!</h3>
+						<h3 className="text-2xl font-semibold text-gray-100">
+							Message sent!
+						</h3>
 						<p className="text-gray-400 max-w-sm">
-							Thank you for reaching out. We've sent you a confirmation email and
-							will get back to you as soon as possible.
+							Thank you for reaching out. We've sent you a confirmation email
+							and will get back to you as soon as possible.
 						</p>
 						<button
 							onClick={() => setStatus("idle")}
@@ -131,7 +140,9 @@ export default function ContactPage() {
 								disabled={status === "loading"}
 								className="flex items-center gap-2 w-full sm:w-fit mx-auto px-8 py-4 bg-gradient-to-br from-primary to-primary-900 text-white font-semibold rounded-lg text-center transition-all duration-300 hover:-translate-y-0.5 shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
 							>
-								{status === "loading" && <Loader2 className="h-4 w-4 animate-spin" />}
+								{status === "loading" && (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								)}
 								{status === "loading" ? "Sending…" : "Send Message"}
 							</button>
 						</div>
