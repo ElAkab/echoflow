@@ -5,16 +5,18 @@ export default function HomePage() {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8 md:p-24 bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
 			<div className="text-center max-w-4xl">
-				<div className="flex items-center justify-center gap-3">
-					<span className="text-5xl md:text-6xl font-bold bg-gradient-to-tr dark:from-primary to-[#053f61] bg-clip-text text-transparent">
-						Echoflow
-					</span>
-					<img
-						src="/images/echoflow_logo.png"
-						alt="Echoflow Logo"
-						className="h-28 w-28"
-					/>
-					<Badge className="self-start mt-2 text-[10px] px-1.5 py-0 bg-primary/10 text-primary border border-primary/30 dark:bg-primary/20 dark:border-primary/40 hover:bg-primary/10">
+				<div className="flex flex-col items-center gap-2 mb-8">
+					<div className="flex items-center justify-center gap-3">
+						<span className="text-5xl md:text-6xl font-bold bg-gradient-to-tr dark:from-primary to-[#053f61] bg-clip-text text-transparent">
+							Echoflow
+						</span>
+						<img
+							src="/images/echoflow_logo.png"
+							alt="Echoflow Logo"
+							className="h-28 w-28"
+						/>
+					</div>
+					<Badge className="px-3 py-0.5 text-[11px] tracking-widest font-medium bg-primary/10 text-primary border border-primary/30 dark:bg-primary/20 dark:border-primary/40 hover:bg-primary/10">
 						BETA
 					</Badge>
 				</div>
@@ -44,8 +46,6 @@ export default function HomePage() {
 					</Link>
 				</div>
 
-				{/* todo 1 : Find something better than emojis */}
-				{/* todo 2 : Find how to place a "+" between the two first cards and finish with a "=" before the last card */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
 					<div className="p-6 rounded-xl shadow-md hover:shadow-lg transition">
 						<div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
