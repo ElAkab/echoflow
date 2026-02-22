@@ -21,12 +21,34 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://echoflow-app.com";
 // Internal helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function send(to: string, subject: string, html: string) {
-	if (!resend) return;
+async function send(
+	to: string,
+	subject: string,
+	html: string,
+	options?: { replyTo?: string; throwOnError?: boolean },
+): Promise<boolean> {
+	if (!resend) {
+		console.warn("[Email] RESEND_API_KEY not configured — email skipped");
+		return false;
+	}
 	try {
-		await resend.emails.send({ from: FROM, to, subject, html });
+		const { error } = await resend.emails.send({
+			from: FROM,
+			to,
+			subject,
+			html,
+			...(options?.replyTo ? { replyTo: options.replyTo } : {}),
+		});
+		if (error) {
+			console.error(`[Email] Resend error for "${subject}" to ${to}:`, error);
+			if (options?.throwOnError) throw new Error(error.message);
+			return false;
+		}
+		return true;
 	} catch (err) {
 		console.error(`[Email] Failed to send "${subject}" to ${to}:`, err);
+		if (options?.throwOnError) throw err;
+		return false;
 	}
 }
 
@@ -112,11 +134,11 @@ export async function sendContactEmail(opts: {
 	fromName: string;
 	fromEmail: string;
 	message: string;
-}) {
+}): Promise<void> {
 	const { fromName, fromEmail, message } = opts;
 	const adminEmail = process.env.CONTACT_EMAIL;
 
-	// Notification to admin
+	// Notification to admin (with replyTo set to the user's email for easy reply)
 	if (adminEmail) {
 		await send(
 			adminEmail,
@@ -127,13 +149,15 @@ export async function sendContactEmail(opts: {
 			<blockquote style="border-left:3px solid #ccc;padding-left:1rem;color:#555;">
 				${message.replace(/\n/g, "<br/>")}
 			</blockquote>
-			<p style="color:#888;font-size:0.85rem;">Reply directly to ${fromEmail}</p>
+			<p style="color:#888;font-size:0.85rem;">You can reply directly to this email to respond to ${fromName}.</p>
 			`,
+			{ replyTo: fromEmail },
 		);
 	}
 
-	// Auto-reply to the sender
-	await send(
+	// Auto-reply confirmation to the sender — throw if it fails so the API
+	// can return a real error instead of a fake "success"
+	const ok = await send(
 		fromEmail,
 		"We received your message — Echoflow",
 		`
@@ -146,7 +170,12 @@ export async function sendContactEmail(opts: {
 		<p>— The Echoflow team</p>
 		<p><a href="${SITE_URL}">echoflow-app.com</a></p>
 		`,
+		{ throwOnError: true },
 	);
+
+	if (!ok) {
+		throw new Error("Email delivery failed — RESEND_API_KEY may not be configured");
+	}
 }
 
 /**

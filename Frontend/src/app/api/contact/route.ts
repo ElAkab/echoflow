@@ -24,11 +24,19 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Message is too long (max 1000 characters)" }, { status: 400 });
 	}
 
-	await sendContactEmail({
-		fromName: name.trim(),
-		fromEmail: email.trim().toLowerCase(),
-		message: message.trim(),
-	});
+	try {
+		await sendContactEmail({
+			fromName: name.trim(),
+			fromEmail: email.trim().toLowerCase(),
+			message: message.trim(),
+		});
+	} catch (err) {
+		console.error("[Contact] Email delivery failed:", err);
+		return NextResponse.json(
+			{ error: "Failed to send your message. Please try again later." },
+			{ status: 500 },
+		);
+	}
 
 	return NextResponse.json({ success: true });
 }
