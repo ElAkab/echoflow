@@ -97,28 +97,31 @@ export async function POST(request: NextRequest) {
 			console.warn("[CreditSync] Could not insert idempotency key:", insertError.message);
 		}
 
-		// Add credits
-		const { data: rpcResult, error: rpcError } = await admin.rpc("add_credits", {
-			p_user_id: user.id,
-			p_amount: creditAmount,
-			p_metadata: {
-				stripe_session_id: session_id,
-				stripe_payment_intent: session.payment_intent,
-				amount_total: session.amount_total,
-				currency: session.currency,
-				source: "success_page_sync",
-			},
-		});
+		// Read current balance then increment — no SQL RPC required
+		const { data: currentProfile, error: fetchError } = await admin
+			.from("profiles")
+			.select("credits")
+			.eq("id", user.id)
+			.maybeSingle();
 
-		if (rpcError) {
-			console.error("[CreditSync] add_credits RPC error:", rpcError);
-			return NextResponse.json(
-				{ error: "Failed to add credits" },
-				{ status: 500 },
-			);
+		if (fetchError) {
+			console.error("[CreditSync] Failed to fetch profile:", fetchError);
+			return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
 		}
 
-		const newBalance = rpcResult?.[0]?.new_balance ?? creditAmount;
+		const currentCredits = currentProfile?.credits ?? 0;
+		const newBalance = currentCredits + creditAmount;
+
+		const { error: updateError } = await admin
+			.from("profiles")
+			.update({ credits: newBalance })
+			.eq("id", user.id);
+
+		if (updateError) {
+			console.error("[CreditSync] Failed to add credits:", updateError);
+			return NextResponse.json({ error: "Failed to add credits" }, { status: 500 });
+		}
+
 		console.log(
 			`[CreditSync] Top-up: +${creditAmount} credits → user ${user.id}. Balance: ${newBalance}`,
 		);

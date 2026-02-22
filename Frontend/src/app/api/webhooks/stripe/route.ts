@@ -154,26 +154,31 @@ async function handleTopUpCompleted(
 	const { user_id, credits: creditsStr } = metaParse.data;
 	const creditAmount = parseInt(creditsStr, 10);
 
-	const { data: rpcResult, error: rpcError } = await supabase.rpc(
-		"add_credits",
-		{
-			p_user_id: user_id,
-			p_amount: creditAmount,
-			p_metadata: {
-				stripe_session_id: session.id,
-				stripe_payment_intent: session.payment_intent,
-				amount_total: session.amount_total,
-				currency: session.currency,
-			},
-		},
-	);
+	// Read current balance + email in one query, then increment — no SQL RPC required
+	const { data: profileData, error: fetchError } = await supabase
+		.from("profiles")
+		.select("credits, email, full_name")
+		.eq("id", user_id)
+		.maybeSingle();
 
-	if (rpcError) {
-		console.error("[Webhook] add_credits RPC error:", rpcError);
+	if (fetchError) {
+		console.error("[Webhook] Failed to fetch profile:", fetchError);
+		throw new Error("Failed to fetch profile");
+	}
+
+	const currentCredits = profileData?.credits ?? 0;
+	const newBalance = currentCredits + creditAmount;
+
+	const { error: updateError } = await supabase
+		.from("profiles")
+		.update({ credits: newBalance })
+		.eq("id", user_id);
+
+	if (updateError) {
+		console.error("[Webhook] Failed to add credits:", updateError);
 		throw new Error("Failed to add credits");
 	}
 
-	const newBalance = rpcResult?.[0]?.new_balance ?? creditAmount;
 	console.log(
 		`[Webhook] Top-up: +${creditAmount} credits → user ${user_id}. Balance: ${newBalance}`,
 	);
@@ -186,13 +191,8 @@ async function handleTopUpCompleted(
 	}
 
 	// Email confirmation (fire-and-forget)
-	const { data: profile } = await supabase
-		.from("profiles")
-		.select("email, full_name")
-		.eq("id", user_id)
-		.maybeSingle();
-	if (profile?.email) {
-		sendTopUpEmail(profile.email, profile.full_name, creditAmount, newBalance).catch(() => {});
+	if (profileData?.email) {
+		sendTopUpEmail(profileData.email, profileData.full_name, creditAmount, newBalance).catch(() => {});
 	}
 }
 

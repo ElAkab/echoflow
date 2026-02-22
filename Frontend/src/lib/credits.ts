@@ -109,8 +109,15 @@ export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Atomically consume one credit after a successful AI response.
+ * Consume one credit after a successful AI response.
  * Only call this on the FIRST message of a session (subsequent turns are free).
+ *
+ * Implemented entirely in TypeScript — no SQL RPC required.
+ * Logic mirrors the consume_credit SQL function:
+ *   1. BYOK → skip (no credits consumed)
+ *   2. Subscription → skip (unlimited)
+ *   3. New day → reset free counter + daily top-up if credits < quota
+ *   4. Prefer premium credits first, fall back to free quota
  */
 export async function consumeCredit(
 	userId: string,
@@ -123,7 +130,7 @@ export async function consumeCredit(
 }> {
 	const supabase = await createClient();
 
-	// BYOK → no platform credits consumed
+	// 1. BYOK → no platform credits consumed
 	const { data: byokKey } = await supabase
 		.from("user_ai_keys")
 		.select("id")
@@ -131,33 +138,75 @@ export async function consumeCredit(
 		.maybeSingle();
 
 	if (byokKey) {
-		return {
-			success: true,
-			balance: -1,
-			message: "Using BYOK — no credits consumed",
-			source: "byok",
-		};
+		return { success: true, balance: -1, message: "Using BYOK — no credits consumed", source: "byok" };
 	}
 
-	const { data, error } = await supabase.rpc("consume_credit", {
-		p_user_id: userId,
-		p_is_premium_request: preferPremium,
-	});
+	// 2. Read profile
+	const { data: profile, error: fetchError } = await supabase
+		.from("profiles")
+		.select("credits, free_used_today, free_reset_at, subscription_status")
+		.eq("id", userId)
+		.maybeSingle();
 
-	if (error) {
-		console.error("Error consuming credit:", error);
-		return { success: false, balance: 0, message: error.message, source: "free_quota" };
+	if (fetchError || !profile) {
+		console.error("consumeCredit: failed to fetch profile", fetchError);
+		return { success: false, balance: 0, message: "Profile not found", source: "free_quota" };
 	}
 
-	const result = data?.[0] ?? data;
-	const source: CreditSource = result?.used_premium ? "purchased" : "free_quota";
+	// 3. Subscription → no credits consumed
+	if (profile.subscription_status === "active") {
+		return { success: true, balance: -1, message: "Subscription active — no credits consumed", source: "subscription" };
+	}
 
-	return {
-		success: result?.success ?? false,
-		balance: result?.new_balance ?? 0,
-		message: result?.message ?? "Credit consumed",
-		source,
-	};
+	// 4. Compute effective state with daily reset + top-up
+	const lastResetAt = profile.free_reset_at ? new Date(profile.free_reset_at) : null;
+	const todayStart = new Date();
+	todayStart.setHours(0, 0, 0, 0);
+	const isNewDay = !lastResetAt || lastResetAt < todayStart;
+
+	let credits = profile.credits ?? 0;
+	let freeUsedToday = isNewDay ? 0 : (profile.free_used_today ?? 0);
+
+	// Daily top-up: if new day and balance below quota, restore to quota
+	const topUpApplied = isNewDay && credits < DAILY_FREE_QUOTA;
+	if (topUpApplied) {
+		credits = DAILY_FREE_QUOTA;
+	}
+
+	// 5. Try to consume
+	const updates: Record<string, unknown> = {};
+
+	if (isNewDay) {
+		updates.free_used_today = 0;
+		updates.free_reset_at = new Date().toISOString();
+		if (topUpApplied) {
+			updates.credits = credits; // persist top-up
+		}
+	}
+
+	if (preferPremium && credits > 0) {
+		// Consume a purchased credit
+		updates.credits = credits - 1;
+		const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+		if (error) {
+			console.error("consumeCredit: failed to update credits", error);
+			return { success: false, balance: 0, message: error.message, source: "purchased" };
+		}
+		return { success: true, balance: credits - 1, message: "Premium credit consumed", source: "purchased" };
+	}
+
+	if (freeUsedToday < DAILY_FREE_QUOTA) {
+		// Consume a free quota slot
+		updates.free_used_today = freeUsedToday + 1;
+		const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+		if (error) {
+			console.error("consumeCredit: failed to update free quota", error);
+			return { success: false, balance: 0, message: error.message, source: "free_quota" };
+		}
+		return { success: true, balance: credits, message: "Free credit consumed", source: "free_quota" };
+	}
+
+	return { success: false, balance: 0, message: "No credits available", source: "free_quota" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
