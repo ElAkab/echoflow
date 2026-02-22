@@ -14,8 +14,8 @@ const resend = process.env.RESEND_API_KEY
 	? new Resend(process.env.RESEND_API_KEY)
 	: null;
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Echoflow <noreply@echoflow.app>";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://echoflow.app";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Echoflow <noreply@echoflow-app.com>";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://echoflow-app.com";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helper
@@ -99,6 +99,52 @@ export async function sendSubscriptionWelcomeEmail(
 		${renewal ? `<p>Your subscription renews on <strong>${renewal}</strong>. You can manage or cancel it anytime from your settings.</p>` : ""}
 		<p><a href="${SITE_URL}/dashboard">Start learning →</a></p>
 		<p>— The Echoflow team</p>
+		`,
+	);
+}
+
+/**
+ * Sent when a user submits the contact form.
+ * - One notification to the admin (CONTACT_EMAIL env var)
+ * - One auto-reply confirmation to the sender
+ */
+export async function sendContactEmail(opts: {
+	fromName: string;
+	fromEmail: string;
+	message: string;
+}) {
+	const { fromName, fromEmail, message } = opts;
+	const adminEmail = process.env.CONTACT_EMAIL;
+
+	// Notification to admin
+	if (adminEmail) {
+		await send(
+			adminEmail,
+			`[Echoflow Contact] Message from ${fromName}`,
+			`
+			<p><strong>From:</strong> ${fromName} &lt;${fromEmail}&gt;</p>
+			<p><strong>Message:</strong></p>
+			<blockquote style="border-left:3px solid #ccc;padding-left:1rem;color:#555;">
+				${message.replace(/\n/g, "<br/>")}
+			</blockquote>
+			<p style="color:#888;font-size:0.85rem;">Reply directly to ${fromEmail}</p>
+			`,
+		);
+	}
+
+	// Auto-reply to the sender
+	await send(
+		fromEmail,
+		"We received your message — Echoflow",
+		`
+		<p>Hello ${fromName},</p>
+		<p>Thank you for reaching out! We've received your message and will get back to you as soon as possible.</p>
+		<p style="color:#888;font-size:0.85rem;">Your message:</p>
+		<blockquote style="border-left:3px solid #ccc;padding-left:1rem;color:#555;">
+			${message.replace(/\n/g, "<br/>")}
+		</blockquote>
+		<p>— The Echoflow team</p>
+		<p><a href="${SITE_URL}">echoflow-app.com</a></p>
 		`,
 	);
 }
