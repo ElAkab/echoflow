@@ -1,5 +1,5 @@
 import Link from "next/link";
-import NavLink from "@/components/layout/NavLink";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 
 export const metadata = {
 	title: "Features — Echoflow",
@@ -41,29 +41,7 @@ const features = [
 export default function FeaturesPage() {
 	return (
 		<main className="min-h-screen bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
-			{/* Header */}
-			<header className="sticky top-0 z-50 backdrop-blur-lg bg-gray-900/40 border-b border-gray-700/50">
-				<div className="flex items-center justify-between px-8 sm:px-16 md:px-32 py-4">
-					<div className="flex items-center gap-3">
-						<NavLink href="/">
-							<span className="text-2xl font-bold text-primary cursor-pointer m-0">
-								Echoflow
-							</span>
-						</NavLink>
-						<img
-							src="/images/echoflow_logo.png"
-							alt="Echoflow Logo"
-							className="h-10 w-10 md:h-12 md:w-12"
-						/>
-					</div>
-
-					<nav className="space-x-6">
-						<NavLink href="/learn-more">Learn More</NavLink>
-						<NavLink href="/features">Features</NavLink>
-						<NavLink href="/contact">Contact</NavLink>
-					</nav>
-				</div>
-			</header>
+			<PublicHeader />
 
 			{/* Hero */}
 			<section className="max-w-5xl mx-auto px-8 pt-20 pb-16 text-center">

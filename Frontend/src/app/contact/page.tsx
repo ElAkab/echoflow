@@ -1,5 +1,5 @@
 import Link from "next/link";
-import NavLink from "@/components/layout/NavLink";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 
 export const metadata = {
 	title: "Contact — Echoflow",
@@ -8,31 +8,9 @@ export const metadata = {
 export default function ContactPage() {
 	return (
 		<main className="min-h-screen pb-8 bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
-			<header className="flex items-center px-8 sm:px-16 md:px-32 bg-gradient-to-b dark:from-gray-900/10 dark:to-gray-800/10 backdrop-blur-lg border-b border-gray-700/50 justify-between mb-8 sticky top-0 py-4">
-				<div className="flex items-center gap-3">
-					<NavLink
-						href="/"
-					>
-                        <span className="text-2xl font-bold text-primary cursor-pointer m-0">
-                            Echoflow
-                        </span>
-					</NavLink>
+			<PublicHeader />
 
-					<img
-						src="/images/echoflow_logo.png"
-						alt="Echoflow Logo"
-						className="h-10 w-10 md:h-12 md:w-12"
-					/>
-				</div>
-
-				<nav className="space-x-6">
-					<NavLink href="/learn-more">Learn More</NavLink>
-					<NavLink href="/features">Features</NavLink>
-					<NavLink href="/contact">Contact</NavLink>
-				</nav>
-			</header>
-
-			<div className="max-w-4xl mx-auto px-8">
+			<div className="max-w-4xl mx-auto px-8 mt-8">
 				<div className="text-center md:px-24">
 					<h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r dark:from-primary to-[#053f61] bg-clip-text text-transparent">
 						Contact
