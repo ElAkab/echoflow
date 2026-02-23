@@ -159,9 +159,14 @@ function SubscriptionDetails({
 						</>
 					)}
 				</p>
-				<Button variant="outline" size="sm" asChild>
+				<Button
+					className="cursor-pointer dark:hover:text-primary"
+					variant="outline"
+					size="sm"
+					asChild
+				>
 					<a href="/payment">
-						<Crown className="mr-2 h-4 w-4" />
+						<Crown className="mr-2 h-4 w-4 " />
 						Resubscribe
 					</a>
 				</Button>
