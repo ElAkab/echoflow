@@ -57,13 +57,14 @@ export async function POST(request: NextRequest) {
 		event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : "Unknown error";
-		console.error("Webhook signature verification failed:", message);
+		console.error("[Webhook] Signature verification failed:", message);
 		return NextResponse.json(
 			{ error: `Webhook Error: ${message}` },
 			{ status: 400 },
 		);
 	}
 
+	console.log(`[Webhook] Received event: ${event.type} (${event.id})`);
 	const supabase = createAdminClient();
 
 	// ── 2. DB-based idempotency check ──────────────────────────────────────
@@ -81,10 +82,11 @@ export async function POST(request: NextRequest) {
 	// ── 3. Handle events ───────────────────────────────────────────────────
 	try {
 		switch (event.type) {
-			// ── Top-up purchase completed ──────────────────────────────────
-			// ── Subscription checkout completed ───────────────────────────
 			case "checkout.session.completed": {
 				const session = event.data.object as Stripe.Checkout.Session;
+				console.log(
+					`[Webhook] checkout.session.completed: mode=${session.mode}, payment_status=${session.payment_status}, session=${session.id}`,
+				);
 
 				if (session.mode === "payment") {
 					await handleTopUpCompleted(supabase, session);
@@ -98,16 +100,20 @@ export async function POST(request: NextRequest) {
 				break;
 			}
 
-			// ── Subscription renewed or updated (status change) ────────────
 			case "customer.subscription.updated": {
 				const subscription = event.data.object as Stripe.Subscription;
+				console.log(
+					`[Webhook] customer.subscription.updated: sub=${subscription.id}, status=${subscription.status}`,
+				);
 				await handleSubscriptionUpdated(supabase, subscription);
 				break;
 			}
 
-			// ── Subscription cancelled ─────────────────────────────────────
 			case "customer.subscription.deleted": {
 				const subscription = event.data.object as Stripe.Subscription;
+				console.log(
+					`[Webhook] customer.subscription.deleted: sub=${subscription.id}`,
+				);
 				await handleSubscriptionDeleted(supabase, subscription);
 				break;
 			}
@@ -118,14 +124,29 @@ export async function POST(request: NextRequest) {
 
 		// ── 4. Mark event as processed ──────────────────────────────────────
 		await markProcessed(supabase, event.id);
+		console.log(`[Webhook] Event ${event.id} processed successfully`);
 		return NextResponse.json({ received: true, success: true });
 	} catch (error) {
-		console.error("[Webhook] Unexpected error:", error);
+		console.error("[Webhook] Unexpected error processing event:", error);
+		// Do NOT mark as processed — Stripe will retry
 		return NextResponse.json(
 			{ error: "Internal server error" },
 			{ status: 500 },
 		);
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Extract current_period_end from a Stripe Subscription (runtime field, absent from newer typedefs) */
+function getPeriodEnd(subscription: Stripe.Subscription): string | null {
+	const raw = subscription as unknown as Record<string, unknown>;
+	if (typeof raw.current_period_end === "number") {
+		return new Date(raw.current_period_end * 1000).toISOString();
+	}
+	return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,7 +175,10 @@ async function handleTopUpCompleted(
 	const { user_id, credits: creditsStr } = metaParse.data;
 	const creditAmount = parseInt(creditsStr, 10);
 
-	// Read current balance + email in one query, then increment — no SQL RPC required
+	console.log(
+		`[Webhook] Top-up: user=${user_id}, amount=${creditAmount}, session=${session.id}`,
+	);
+
 	const { data: profileData, error: fetchError } = await supabase
 		.from("profiles")
 		.select("credits, email, full_name")
@@ -162,16 +186,26 @@ async function handleTopUpCompleted(
 		.maybeSingle();
 
 	if (fetchError) {
-		console.error("[Webhook] Failed to fetch profile:", fetchError);
+		console.error("[Webhook] Failed to fetch profile for top-up:", fetchError);
 		throw new Error("Failed to fetch profile");
 	}
 
-	const currentCredits = profileData?.credits ?? 0;
+	if (!profileData) {
+		console.error(`[Webhook] Profile not found for user ${user_id}`);
+		throw new Error("Profile not found");
+	}
+
+	const currentCredits = profileData.credits ?? 0;
 	const newBalance = currentCredits + creditAmount;
+
+	const updates: Record<string, unknown> = { credits: newBalance };
+	if (session.customer && typeof session.customer === "string") {
+		updates.stripe_customer_id = session.customer;
+	}
 
 	const { error: updateError } = await supabase
 		.from("profiles")
-		.update({ credits: newBalance })
+		.update(updates)
 		.eq("id", user_id);
 
 	if (updateError) {
@@ -180,19 +214,18 @@ async function handleTopUpCompleted(
 	}
 
 	console.log(
-		`[Webhook] Top-up: +${creditAmount} credits → user ${user_id}. Balance: ${newBalance}`,
+		`[Webhook] Top-up done: +${creditAmount} → user ${user_id}. Balance: ${currentCredits} → ${newBalance}`,
 	);
 
-	if (session.customer && typeof session.customer === "string") {
-		await supabase
-			.from("profiles")
-			.update({ stripe_customer_id: session.customer })
-			.eq("id", user_id);
-	}
-
-	// Email confirmation (fire-and-forget)
-	if (profileData?.email) {
-		sendTopUpEmail(profileData.email, profileData.full_name, creditAmount, newBalance).catch(() => {});
+	if (profileData.email) {
+		sendTopUpEmail(
+			profileData.email,
+			profileData.full_name,
+			creditAmount,
+			newBalance,
+		).catch((e) =>
+			console.error("[Webhook] Failed to send top-up email:", e),
+		);
 	}
 }
 
@@ -204,46 +237,78 @@ async function handleSubscriptionCheckoutCompleted(
 
 	if (!metaParse.success) {
 		console.log(
-			`[Webhook] Skipping subscription session without metadata ${session.id}:`,
+			`[Webhook] Skipping subscription session without valid metadata ${session.id}:`,
 			metaParse.error.issues,
 		);
 		return;
 	}
 
 	const { user_id } = metaParse.data;
+
 	const subscriptionId =
 		typeof session.subscription === "string"
 			? session.subscription
-			: session.subscription?.id ?? null;
+			: (session.subscription as Stripe.Subscription | null)?.id ?? null;
+
+	if (!subscriptionId) {
+		console.error(
+			`[Webhook] No subscription ID found in session ${session.id}`,
+		);
+		throw new Error("No subscription ID in checkout session");
+	}
+
+	// Retrieve subscription to get current_period_end
+	let periodEnd: string | null = null;
+	try {
+		const sub = await stripe.subscriptions.retrieve(subscriptionId);
+		periodEnd = getPeriodEnd(sub);
+		console.log(
+			`[Webhook] Subscription ${subscriptionId}: period_end=${periodEnd}`,
+		);
+	} catch (e) {
+		console.error(
+			"[Webhook] Failed to retrieve subscription for period_end (non-fatal):",
+			e,
+		);
+	}
+
+	const updates: Record<string, unknown> = {
+		subscription_status: "active",
+		stripe_subscription_id: subscriptionId,
+		subscription_period_end: periodEnd,
+	};
+	if (session.customer && typeof session.customer === "string") {
+		updates.stripe_customer_id = session.customer;
+	}
 
 	const { error } = await supabase
 		.from("profiles")
-		.update({
-			subscription_status: "active",
-			stripe_subscription_id: subscriptionId,
-			...(session.customer && typeof session.customer === "string"
-				? { stripe_customer_id: session.customer }
-				: {}),
-		})
+		.update(updates)
 		.eq("id", user_id);
 
 	if (error) {
-		console.error("[Webhook] Failed to activate subscription:", error);
+		console.error(
+			"[Webhook] Failed to activate subscription in DB:",
+			error.code,
+			error.message,
+		);
 		throw new Error("Failed to activate subscription");
 	}
 
 	console.log(
-		`[Webhook] Subscription activated: user ${user_id}, sub ${subscriptionId}`,
+		`[Webhook] Subscription activated: user=${user_id}, sub=${subscriptionId}, period_end=${periodEnd}`,
 	);
 
-	// Email confirmation (fire-and-forget)
 	const { data: profile } = await supabase
 		.from("profiles")
 		.select("email, full_name")
 		.eq("id", user_id)
 		.maybeSingle();
+
 	if (profile?.email) {
-		sendSubscriptionWelcomeEmail(profile.email, profile.full_name).catch(() => {});
+		sendSubscriptionWelcomeEmail(profile.email, profile.full_name).catch(
+			(e) => console.error("[Webhook] Failed to send welcome email:", e),
+		);
 	}
 }
 
@@ -251,7 +316,6 @@ async function handleSubscriptionUpdated(
 	supabase: ReturnType<typeof createAdminClient>,
 	subscription: Stripe.Subscription,
 ) {
-	// Map Stripe status → internal status
 	const statusMap: Record<string, string> = {
 		active: "active",
 		past_due: "past_due",
@@ -261,14 +325,26 @@ async function handleSubscriptionUpdated(
 	};
 
 	const newStatus = statusMap[subscription.status] ?? "inactive";
+	const periodEnd = getPeriodEnd(subscription);
+
+	console.log(
+		`[Webhook] Subscription update: sub=${subscription.id}, stripe_status=${subscription.status} → db_status=${newStatus}, period_end=${periodEnd}`,
+	);
 
 	const { error } = await supabase
 		.from("profiles")
-		.update({ subscription_status: newStatus })
+		.update({
+			subscription_status: newStatus,
+			subscription_period_end: periodEnd,
+		})
 		.eq("stripe_subscription_id", subscription.id);
 
 	if (error) {
-		console.error("[Webhook] Failed to update subscription status:", error);
+		console.error(
+			"[Webhook] Failed to update subscription status:",
+			error.code,
+			error.message,
+		);
 		throw new Error("Failed to update subscription");
 	}
 
@@ -281,7 +357,14 @@ async function handleSubscriptionDeleted(
 	supabase: ReturnType<typeof createAdminClient>,
 	subscription: Stripe.Subscription,
 ) {
-	// Fetch profile BEFORE clearing stripe_subscription_id
+	// Keep period_end so checkCredits() can honour access until billing period ends
+	const periodEnd = getPeriodEnd(subscription);
+
+	console.log(
+		`[Webhook] Subscription deleted: sub=${subscription.id}, period_end=${periodEnd}`,
+	);
+
+	// Fetch email BEFORE clearing stripe_subscription_id
 	const { data: profile } = await supabase
 		.from("profiles")
 		.select("email, full_name")
@@ -290,24 +373,31 @@ async function handleSubscriptionDeleted(
 
 	const { error } = await supabase
 		.from("profiles")
-		.update({ subscription_status: "cancelled", stripe_subscription_id: null })
+		.update({
+			subscription_status: "cancelled",
+			stripe_subscription_id: null,
+			subscription_period_end: periodEnd, // preserved — not nulled
+		})
 		.eq("stripe_subscription_id", subscription.id);
 
 	if (error) {
-		console.error("[Webhook] Failed to cancel subscription:", error);
+		console.error(
+			"[Webhook] Failed to cancel subscription:",
+			error.code,
+			error.message,
+		);
 		throw new Error("Failed to cancel subscription");
 	}
 
 	console.log(`[Webhook] Subscription ${subscription.id} cancelled`);
 
 	if (profile?.email) {
-		sendSubscriptionCancelledEmail(profile.email, profile.full_name).catch(() => {});
+		sendSubscriptionCancelledEmail(profile.email, profile.full_name).catch(
+			(e) =>
+				console.error("[Webhook] Failed to send cancellation email:", e),
+		);
 	}
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function markProcessed(
 	supabase: ReturnType<typeof createAdminClient>,
@@ -322,4 +412,3 @@ async function markProcessed(
 		console.error("[Webhook] Failed to mark event as processed:", error);
 	}
 }
-

@@ -52,7 +52,7 @@ export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 	// 2. Read credits + free quota + subscription status from profiles
 	const { data: profile } = await supabase
 		.from("profiles")
-		.select("credits, free_used_today, free_reset_at, subscription_status")
+		.select("credits, free_used_today, free_reset_at, subscription_status, subscription_period_end")
 		.eq("id", userId)
 		.maybeSingle();
 
@@ -67,8 +67,17 @@ export async function checkCredits(userId: string): Promise<CreditCheckResult> {
 		};
 	}
 
-	// 2b. Active subscriber → unlimited premium (no credit deduction)
-	if (profile.subscription_status === "active") {
+	// 2b. Subscription active — OR cancelled but still within billing period
+	const periodEnd = profile.subscription_period_end
+		? new Date(profile.subscription_period_end)
+		: null;
+	const isSubActive =
+		profile.subscription_status === "active" ||
+		(profile.subscription_status === "cancelled" &&
+			periodEnd !== null &&
+			periodEnd > new Date());
+
+	if (isSubActive) {
 		return {
 			hasCredits: true,
 			canUsePremium: true,
@@ -144,7 +153,7 @@ export async function consumeCredit(
 	// 2. Read profile
 	const { data: profile, error: fetchError } = await supabase
 		.from("profiles")
-		.select("credits, free_used_today, free_reset_at, subscription_status")
+		.select("credits, free_used_today, free_reset_at, subscription_status, subscription_period_end")
 		.eq("id", userId)
 		.maybeSingle();
 
@@ -153,8 +162,17 @@ export async function consumeCredit(
 		return { success: false, balance: 0, message: "Profile not found", source: "free_quota" };
 	}
 
-	// 3. Subscription → no credits consumed
-	if (profile.subscription_status === "active") {
+	// 3. Subscription active OR cancelled but still within billing period → no credits consumed
+	const periodEnd = profile.subscription_period_end
+		? new Date(profile.subscription_period_end)
+		: null;
+	const isSubActive =
+		profile.subscription_status === "active" ||
+		(profile.subscription_status === "cancelled" &&
+			periodEnd !== null &&
+			periodEnd > new Date());
+
+	if (isSubActive) {
 		return { success: true, balance: -1, message: "Subscription active — no credits consumed", source: "subscription" };
 	}
 

@@ -15,13 +15,16 @@ const stripe =
  * POST /api/subscriptions/sync
  *
  * Fallback activation called from the payment success page.
- * Verifies the Stripe Checkout session client-side and activates the
- * subscription in DB immediately — in case the webhook fires with a delay.
+ * Verifies the Stripe Checkout session and activates the subscription
+ * in DB immediately — in case the webhook fires with a delay.
+ *
+ * Also stores subscription_period_end so checkCredits() can honour
+ * access until the billing period ends even after cancellation.
  *
  * Security:
  *   - Requires authenticated user session
  *   - Verifies session.metadata.user_id matches the current user
- *   - Only activates if session.mode=subscription AND payment_status=paid
+ *   - Only activates if session.mode=subscription
  *   - Uses service-role admin client for the DB write
  */
 export async function POST(request: NextRequest) {
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest) {
 	} = await supabase.auth.getUser();
 
 	if (authError || !user) {
+		console.error("[SubSync] Unauthorized:", authError?.message);
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
@@ -43,7 +47,7 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "session_id required" }, { status: 400 });
 	}
 
-	// DEV MODE: just return the current DB status
+	// DEV MODE: return current DB status without hitting Stripe
 	if (!stripe) {
 		const { data: profile } = await supabase
 			.from("profiles")
@@ -58,12 +62,16 @@ export async function POST(request: NextRequest) {
 	}
 
 	try {
+		// Retrieve checkout session from Stripe
 		const session = await stripe.checkout.sessions.retrieve(session_id);
+		console.log(
+			`[SubSync] Session retrieved: id=${session.id}, mode=${session.mode}, payment_status=${session.payment_status}, user=${user.id}`,
+		);
 
-		// Security: verify this session belongs to the authenticated user
+		// Security: session must belong to the authenticated user
 		if (session.metadata?.user_id !== user.id) {
 			console.warn(
-				`[Sync] session ${session_id} user_id mismatch: expected ${user.id}, got ${session.metadata?.user_id}`,
+				`[SubSync] user_id mismatch: expected ${user.id}, got ${session.metadata?.user_id}`,
 			);
 			return NextResponse.json(
 				{ error: "Session does not belong to current user" },
@@ -71,15 +79,18 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Only activate for completed subscription sessions
-		if (session.mode !== "subscription" || session.payment_status !== "paid") {
+		// Must be a subscription checkout
+		if (session.mode !== "subscription") {
+			console.warn(
+				`[SubSync] Session mode is '${session.mode}', expected 'subscription'`,
+			);
 			return NextResponse.json(
-				{ activated: false, reason: "Session not a completed subscription" },
+				{ activated: false, reason: "Not a subscription session" },
 				{ status: 200 },
 			);
 		}
 
-		// Check DB first — webhook may have already processed it
+		// Check DB first — webhook may have already activated it
 		const { data: profile } = await supabase
 			.from("profiles")
 			.select("subscription_status")
@@ -87,42 +98,79 @@ export async function POST(request: NextRequest) {
 			.maybeSingle();
 
 		if (profile?.subscription_status === "active") {
+			console.log(`[SubSync] Already active for user ${user.id}`);
 			return NextResponse.json({ activated: true, alreadyActive: true });
 		}
 
+		// Get subscription ID from the session
 		const subscriptionId =
 			typeof session.subscription === "string"
 				? session.subscription
-				: (session.subscription as { id?: string } | null)?.id ?? null;
+				: (session.subscription as Stripe.Subscription | null)?.id ?? null;
 
+		if (!subscriptionId) {
+			console.error(`[SubSync] No subscription ID in session ${session.id}`);
+			return NextResponse.json(
+				{ activated: false, reason: "No subscription ID in session" },
+				{ status: 200 },
+			);
+		}
+
+		// Retrieve subscription object to get current_period_end
+		let periodEnd: string | null = null;
+		try {
+			const sub = await stripe.subscriptions.retrieve(subscriptionId);
+			const raw = sub as unknown as Record<string, unknown>;
+			if (typeof raw.current_period_end === "number") {
+				periodEnd = new Date(raw.current_period_end * 1000).toISOString();
+			}
+			console.log(
+				`[SubSync] Subscription ${subscriptionId}: status=${sub.status}, period_end=${periodEnd}`,
+			);
+		} catch (e) {
+			console.error(
+				"[SubSync] Failed to retrieve subscription for period_end (non-fatal):",
+				e,
+			);
+		}
+
+		// Activate in DB using service role
 		const admin = createAdminClient();
+		const updates: Record<string, unknown> = {
+			subscription_status: "active",
+			stripe_subscription_id: subscriptionId,
+			subscription_period_end: periodEnd,
+		};
+		if (session.customer && typeof session.customer === "string") {
+			updates.stripe_customer_id = session.customer;
+		}
+
 		const { error: updateError } = await admin
 			.from("profiles")
-			.update({
-				subscription_status: "active",
-				stripe_subscription_id: subscriptionId,
-				...(session.customer && typeof session.customer === "string"
-					? { stripe_customer_id: session.customer }
-					: {}),
-			})
+			.update(updates)
 			.eq("id", user.id);
 
 		if (updateError) {
-			console.error("[Sync] Failed to activate subscription:", updateError);
+			console.error(
+				"[SubSync] Failed to activate subscription in DB:",
+				updateError.code,
+				updateError.message,
+			);
 			return NextResponse.json(
-				{ error: "Failed to activate subscription" },
+				{ error: "Failed to activate subscription", detail: updateError.message },
 				{ status: 500 },
 			);
 		}
 
 		console.log(
-			`[Sync] Subscription activated: user ${user.id}, sub ${subscriptionId}`,
+			`[SubSync] Activated: user=${user.id}, sub=${subscriptionId}, period_end=${periodEnd}`,
 		);
-		return NextResponse.json({ activated: true });
+		return NextResponse.json({ activated: true, periodEnd });
 	} catch (error) {
-		console.error("[Sync] Error verifying session:", error);
+		const msg = error instanceof Error ? error.message : String(error);
+		console.error("[SubSync] Unexpected error:", msg);
 		return NextResponse.json(
-			{ error: "Failed to sync subscription" },
+			{ error: "Failed to sync subscription", detail: msg },
 			{ status: 500 },
 		);
 	}
