@@ -12,6 +12,7 @@ export const viewport: Viewport = {
 
 // Metadata for the application, including title and description.
 export const metadata: Metadata = {
+	metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://echoflow-app.com"),
 	title: "Echoflow - AI-Powered Learning",
 	description:
 		"Master your knowledge with AI-generated quizzes from your notes",
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 		siteName: "Echoflow",
 		images: [
 			{
-				url: "/images/thumbnail.png",
+				url: "/images/thumbnail2.png",
 				width: 1920,
 				height: 1080,
 				alt: "Echoflow - AI-Powered Learning",
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
 		title: "Echoflow - AI-Powered Learning",
 		description:
 			"Master your knowledge with AI-generated quizzes from your notes",
-		images: ["/images/thumbnail.png"],
+		images: ["/images/thumbnail2.png"],
 	},
 };
 
