@@ -22,8 +22,8 @@ export default function LearnMorePage() {
 
 				<section className="text-left w-full sm:w-auto text-gray-200 space-y-4 prose prose-invert max-w-none">
 					<p>
-						Taking notes is only the first step. Most people reread their notes
-						passively, thinking they understand — until they realize they don’t
+						Taking notes is only the first step Most people reread their notes
+						passively, thinking they understand : until they realize they don’t
 						remember much when it actually matters.
 					</p>
 
@@ -38,7 +38,13 @@ export default function LearnMorePage() {
 
 					<p>
 						This project is built around active recall, a learning technique
-						backed by cognitive science.
+						backed by{" "}
+						<a
+							href="https://en.wikipedia.org/wiki/Cognitive_science"
+							className="text-primary"
+						>
+							cognitive science.
+						</a>
 					</p>
 
 					<p>
@@ -62,7 +68,7 @@ export default function LearnMorePage() {
 						</li>
 						<li>
 							You answer, uncover gaps in your understanding, and reinforce what
-							truly matters — with AI-generated guidance.
+							truly matters with AI-generated guidance.
 						</li>
 						<li>You improve through active engagement, not passive reading.</li>
 					</ol>
