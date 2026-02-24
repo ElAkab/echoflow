@@ -156,22 +156,22 @@ function normalizeIncomingMessages(payload: unknown): OpenRouterMessage[] {
 			notes.map((note) => [note.id, note.title || "Untitled note"]),
 		);
 
-		// Only include previous insights if this is NOT the first message
-		// For the first message, we want a fresh start without previous context pollution
+		// Always include previous insights — used to guide the first question toward
+		// weak areas, and as background context on subsequent turns.
 		let previousInsightsBlock = "";
-		if (!isFirstMessage) {
-			const insightLines = noteIds
-				.map((noteId) => {
-					const conclusion = conclusionByNote.get(noteId);
-					if (!conclusion) return null;
-					const title = noteTitleMap.get(noteId) || "Untitled note";
-					return `- ${title}: ${conclusion}`;
-				})
-				.filter(Boolean);
-			
-			if (insightLines.length > 0) {
-				previousInsightsBlock = `\n\nPrevious Session Insights (per note, use ONLY as context, do NOT assume current knowledge):\n${insightLines.join("\n")}`;
-			}
+		const insightLines = noteIds
+			.map((noteId) => {
+				const conclusion = conclusionByNote.get(noteId);
+				if (!conclusion) return null;
+				const title = noteTitleMap.get(noteId) || "Untitled note";
+				return `- ${title}: ${conclusion}`;
+			})
+			.filter(Boolean);
+
+		if (insightLines.length > 0) {
+			previousInsightsBlock = isFirstMessage
+				? `\n\nPrevious Session Insights (use to open with questions targeting weaknesses — do NOT mention the previous session):\n${insightLines.join("\n")}`
+				: `\n\nPrevious Session Insights (background context only — do NOT assume current knowledge):\n${insightLines.join("\n")}`;
 		}
 
 		// ── Phase detection ───────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ Rules: no delimiter elsewhere · valid JSON · respond in the note's language ·
 
 **NOTE CONTENT:**
 ${noteContext}
-${isFirstMessage ? "" : previousInsightsBlock}
+${previousInsightsBlock}
 
 **Metadata guidelines:**
 - "analysis": concepts the student demonstrated (empty if isFirstMessage=TRUE)

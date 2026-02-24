@@ -36,19 +36,46 @@ function parseMetadata(raw: string): StreamMetadata {
 	const trimmed = raw.trim();
 	if (!trimmed) return EMPTY_METADATA;
 
-	try {
-		const parsed = JSON.parse(trimmed);
-		if (parsed && typeof parsed === "object") {
-			return {
-				analysis: parsed.analysis || "",
-				weaknesses: parsed.weaknesses || "",
-				conclusion: parsed.conclusion || "",
-			};
+	// Strip markdown code fences (models sometimes wrap JSON despite instructions)
+	const stripped = trimmed
+		.replace(/^```(?:json)?\s*/i, "")
+		.replace(/\s*```\s*$/i, "")
+		.trim();
+
+	// Attempt 1: direct parse on stripped text
+	for (const candidate of [stripped, trimmed]) {
+		try {
+			const parsed = JSON.parse(candidate);
+			if (parsed && typeof parsed === "object") {
+				return {
+					analysis: parsed.analysis || "",
+					weaknesses: parsed.weaknesses || "",
+					conclusion: parsed.conclusion || "",
+				};
+			}
+		} catch {
+			// try next candidate
 		}
-	} catch (error) {
-		console.warn("Failed to parse metadata JSON:", error);
 	}
 
+	// Attempt 2: extract first {...} block via regex (handles trailing text)
+	const match = stripped.match(/\{[\s\S]*\}/);
+	if (match) {
+		try {
+			const parsed = JSON.parse(match[0]);
+			if (parsed && typeof parsed === "object") {
+				return {
+					analysis: parsed.analysis || "",
+					weaknesses: parsed.weaknesses || "",
+					conclusion: parsed.conclusion || "",
+				};
+			}
+		} catch {
+			// fall through
+		}
+	}
+
+	console.warn("[parseMetadata] Failed to parse — raw excerpt:", raw.slice(0, 120));
 	return EMPTY_METADATA;
 }
 

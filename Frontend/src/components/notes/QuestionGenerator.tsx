@@ -56,6 +56,10 @@ export function QuestionGenerator({
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const wasOpenRef = useRef(false);
 	const hasSavedRef = useRef(false);
+	const lastFeedbackRef = useRef<StreamMetadata>({ analysis: "", weaknesses: "", conclusion: "" });
+	// Capture noteIds/noteId at session start so saveSession isn't affected by
+	// parent resetting props (e.g. quizNoteIds → null) before the save runs.
+	const sessionNoteIdsRef = useRef<string[]>([]);
 	const refreshCredits = useCreditsStore((state) => state.refreshCredits);
 
 	const scrollToBottom = () => {
@@ -111,6 +115,8 @@ export function QuestionGenerator({
 	useEffect(() => {
 		if (open !== undefined && open) {
 			if (!loading && messages.length === 0) {
+				// Snapshot noteIds now — parent may reset them before saveSession runs
+				sessionNoteIdsRef.current = noteIds ?? (noteId ? [noteId] : []);
 				setSessionStartTime(Date.now());
 				hasSavedRef.current = false;
 				startConversation().catch((e) => console.error(e));
@@ -131,9 +137,9 @@ export function QuestionGenerator({
 	// Save study session when dialog closes
 	const saveSession = useCallback(async () => {
 		if (hasSavedRef.current) return;
-		if (messages.length === 0) return;
+		if (!messages.some((m) => m.role === "user")) return;
 
-		const noteIdsToSave = noteIds || (noteId ? [noteId] : []);
+		const noteIdsToSave = sessionNoteIdsRef.current;
 		if (noteIdsToSave.length === 0) return;
 
 		setIsSaving(true);
@@ -144,8 +150,7 @@ export function QuestionGenerator({
 				? Math.floor((Date.now() - sessionStartTime) / 1000)
 				: 0;
 
-		const lastFeedback = (window as any).__lastAIFeedback || {};
-		const aiFeedback = JSON.stringify(lastFeedback);
+		const aiFeedback = JSON.stringify(lastFeedbackRef.current);
 
 		try {
 			await fetch("/api/study-sessions", {
@@ -175,8 +180,6 @@ export function QuestionGenerator({
 		}
 	}, [
 		messages,
-		noteId,
-		noteIds,
 		categoryId,
 		currentModel,
 		currentKeySource,
@@ -259,7 +262,7 @@ export function QuestionGenerator({
 						];
 					});
 
-					(window as any).__lastAIFeedback = metadata;
+					lastFeedbackRef.current = metadata;
 					setLoading(false);
 					setIsStreaming(false);
 				},
@@ -280,6 +283,9 @@ export function QuestionGenerator({
 			noteId,
 			noteIds,
 		});
+		// Snapshot noteIds at session start (props may change before save runs)
+		sessionNoteIdsRef.current = noteIds ?? (noteId ? [noteId] : []);
+		hasSavedRef.current = false;
 		setOpen(true);
 		setMessages([]);
 		setLoading(true);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Markdown } from "@/components/ui/markdown";
 import { TokenWarning, type TokenWarningProps } from "@/components/TokenWarning";
 import { readSSEStream, type StreamMetadata } from "@/lib/ai/sse";
@@ -28,6 +28,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 	const [modelUsed, setModelUsed] = useState("unknown");
 	const [keySource, setKeySource] = useState("unknown");
 	const [isSaving, setIsSaving] = useState(false);
+	const lastFeedbackRef = useRef<StreamMetadata>({ analysis: "", weaknesses: "", conclusion: "" });
 	const [errorState, setErrorState] = useState<{
 		type: TokenWarningProps["errorType"];
 		message?: string;
@@ -147,7 +148,7 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 						];
 					});
 
-					(window as any).__lastAIFeedback = metadata;
+					lastFeedbackRef.current = metadata;
 					setLoading(false);
 					setIsStreaming(false);
 				},
@@ -306,12 +307,19 @@ export function MultiNoteQuiz({ noteIds, onClose }: MultiNoteQuizProps) {
 	// Handle close with proper async save
 	const handleClose = async () => {
 		if (isSaving) return;
+		// Don't save if the user never answered anything
+		if (!messages.some((m) => m.role === "user")) {
+			refreshCredits();
+			useFeedbackStore.getState().triggerFeedback();
+			onClose();
+			return;
+		}
 
 		setIsSaving(true);
 
 		const durationSeconds = Math.floor((Date.now() - startTime) / 1000);
 		const questionsAsked = messages.filter((m) => m.role === "assistant").length;
-		const lastFeedback = (window as any).__lastAIFeedback || {};
+		const lastFeedback = lastFeedbackRef.current;
 
 		try {
 			const firstNoteRes = await fetch(`/api/notes/${noteIds[0]}`);

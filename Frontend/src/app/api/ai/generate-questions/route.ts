@@ -102,10 +102,10 @@ export async function POST(request: NextRequest) {
 			.limit(1)
 			.maybeSingle();
 
-		// Only fetch previous conclusion if this is NOT the first message
-		// For first messages, we want a clean start without previous context pollution
+		// Always fetch previous conclusion — used to guide the first question toward
+		// weak areas and to provide continuity on subsequent turns.
 		let previousConclusion = "";
-		if (!isFirstMessage && lastSession?.ai_feedback) {
+		if (lastSession?.ai_feedback) {
 			try {
 				const feedback = JSON.parse(lastSession.ai_feedback);
 				previousConclusion = feedback.conclusion || "";
@@ -170,7 +170,7 @@ Correct ✅ You correctly identified that...
 Category: ${categoryName}
 Note Content:
 ${note.content}
-${isFirstMessage || !previousConclusion ? "" : `\n\nPrevious Session Insight (use ONLY as context, do NOT assume current knowledge):\n${previousConclusion}`}
+${!previousConclusion ? "" : `\n\nPrevious Session Insight: ${previousConclusion}${isFirstMessage ? "\n→ Use this to open with a question that targets identified weaknesses or unexplored areas. Do NOT mention the previous session explicitly." : "\n→ Background context only — do NOT assume current knowledge."}`}
 
 **Guidelines for metadata fields:**
 - "analysis": ONLY concepts the student has explicitly demonstrated in their answers (empty if isFirstMessage=TRUE)
