@@ -9,11 +9,11 @@ import { checkCredits, canUsePremiumModels } from "@/lib/credits";
 // Default models (used by ALL users - renamed from PREMIUM_MODELS)
 const DEFAULT_MODELS = [
 	"openai/gpt-4o-mini", // Le standard équilibré
+	"mistralai/mistral-7b-instruct", // La touche française, très efficace
 	// "google/gemini-flash-1.5-8b", // Le moins cher et très rapide
 	"anthropic/claude-3-haiku", // Le meilleur pour le texte fluide
 	"meta-llama/llama-3.1-8b-instruct", // L'open-source robuste
 	// "deepseek/deepseek-chat", // Le génie low-cost
-	"mistralai/mistral-7b-instruct", // La touche française, très efficace
 ];
 
 // Fallback models (Free tier) - UPDATED with valid model IDs
