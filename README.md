@@ -6,6 +6,8 @@
   <strong>Transform your notes into knowledge — one question at a time.</strong>
   <br/><br/>
   <a href="https://echoflow-app.com">Live Demo</a> · <a href="#getting-started">Get Started</a>
+  <br/><br/>
+  <img src="https://img.shields.io/badge/status-active%20development-brightgreen" alt="Active Development" />
 </div>
 
 ---
@@ -16,7 +18,7 @@ I had a bad habit I couldn't shake: re-reading my notes over and over, feeling l
 
 Turns out there's a name for that feeling: the **illusion of competence**. Passive review gives you the sensation of learning without building the neural pathways that make knowledge stick. The research is clear — what actually works is **active recall**: forcing your brain to retrieve information rather than just recognise it.
 
-I wanted a tool that would take my notes and turn them into a real challenge. Not generic flashcards. Not a quiz generator that ignores context. An AI that reads *my* notes, asks *me* the hard questions, and remembers where I struggled last time.
+I wanted a tool that would take my notes and turn them into a real challenge. Not generic flashcards. Not a quiz generator that ignores context. An AI that reads _my_ notes, asks _me_ the hard questions, and remembers where I struggled last time.
 
 So I built it.
 
@@ -26,7 +28,7 @@ So I built it.
 
 I won't pretend this was written entirely by hand. I had access to some of the best AI development tools available — and I used them intentionally.
 
-The real work was knowing *what* to build, *how* to structure it, and *when* the AI was wrong. The tools amplified what I already knew; they didn't replace the thinking. That's the only honest way to describe it: the best instruments I could find, multiplied by whatever I bring to the table.
+The real work was knowing _what_ to build, _how_ to structure it, and _when_ the AI was wrong. The tools amplified what I already knew; they didn't replace the thinking. That's the only honest way to describe it: the best instruments I could find, multiplied by whatever I bring to the table.
 
 The result is a production-ready app — auth, payments, AI streaming, credit system, subscriptions — built by one person in a few weeks.
 
@@ -35,18 +37,23 @@ The result is a production-ready app — auth, payments, AI streaming, credit sy
 ## Features
 
 ### Category Creation
+
 Create custom categories with icons and colors to visually organize your knowledge base.
 
 ### Markdown Notes
+
 Write rich notes with full Markdown support (code blocks, lists, headers) — structure that the AI reads and respects when generating questions.
 
 ### LLM-Powered Interactive Quizzes
+
 Launch quizzes in a chat-based format powered by an LLM, dynamically generated from your own notes. Not generic. Not random. Yours.
 
 ### Multi-Note Selection
+
 Combine multiple notes to give the AI broader context — ideal for subjects where everything connects.
 
 ### Intelligent Session Tracking
+
 The model remembers your previous sessions: what you struggled with, what you got right, and how to push you further next time.
 
 ---
@@ -82,21 +89,21 @@ The result: every piece of AI-generated code follows the same standards as hand-
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 (strict) |
-| Styling | Tailwind CSS 4.0 + shadcn/ui |
-| Animations | Framer Motion |
-| State | Zustand |
-| Auth | Supabase Auth (Google OAuth + Magic Link) |
-| Database | Supabase (PostgreSQL + RLS) |
-| AI Gateway | OpenRouter (streaming, premium-first routing) |
-| Payments | Stripe (credits + subscriptions) |
-| Email | Resend |
-| Rate Limiting | Upstash Redis |
-| Hosting | Vercel |
-| Package Manager | pnpm |
+| Layer           | Technology                                    |
+| --------------- | --------------------------------------------- |
+| Framework       | Next.js 16 (App Router)                       |
+| Language        | TypeScript 5 (strict)                         |
+| Styling         | Tailwind CSS 4.0 + shadcn/ui                  |
+| Animations      | Framer Motion                                 |
+| State           | Zustand                                       |
+| Auth            | Supabase Auth (Google OAuth + Magic Link)     |
+| Database        | Supabase (PostgreSQL + RLS)                   |
+| AI Gateway      | OpenRouter (streaming, premium-first routing) |
+| Payments        | Stripe (credits + subscriptions)              |
+| Email           | Resend                                        |
+| Rate Limiting   | Upstash Redis                                 |
+| Hosting         | Vercel                                        |
+| Package Manager | pnpm                                          |
 
 ---
 
@@ -197,6 +204,7 @@ pnpm dev
 ## Deployment
 
 **Vercel** (recommended):
+
 - Root directory: `Frontend`
 - Build command: `pnpm build`
 - Install command: `pnpm install`
@@ -208,6 +216,10 @@ Pushes to `main` deploy automatically.
 
 ## Roadmap
 
+This project is in active development. The foundation is solid — auth, payments, AI, data model — and the next phase is about making the learning engine smarter, drawing from well-established research in cognitive science and educational psychology.
+
+**Shipped**
+
 - [x] Auth (Google OAuth + Magic Link)
 - [x] Notes + Categories (Markdown, CRUD)
 - [x] Single-note and multi-note AI quiz
@@ -217,14 +229,28 @@ Pushes to `main` deploy automatically.
 - [x] BYOK (Bring Your Own OpenRouter Key)
 - [x] Anonymous user feedback
 - [x] Email system (welcome, receipts, contact)
-- [ ] Spaced repetition scheduling
-- [ ] Session history and progress charts
-- [ ] Weak-area identification dashboard
+- [x] Page transitions + skeleton loading states
+
+**In Progress**
+
+- [ ] Session history — view past quizzes, scores, AI feedback per note
+- [ ] Weak-area dashboard — which topics consistently trip you up
+
+**Planned — Learning Science**
+
+- [ ] **Spaced repetition** (SM-2 / FSRS algorithm) — schedule notes for review at the optimal moment before forgetting
+- [ ] **Interleaving** — mix questions across categories in a single session to strengthen discrimination between concepts
+- [ ] **Desirable difficulty** — dynamically increase question complexity as performance improves
+- [ ] **Metacognitive summary** — end-of-session report: confidence vs. actual performance, blind spots identified
+
+**Planned — Product**
+
+- [ ] Note import (Markdown files, Notion export)
+- [ ] Mobile-optimised review mode
 
 ---
 
-## Contact
+The App : [Echoflow](https://echoflow-app.com)
 
-**Adam El Akab**
-- GitHub: [@ElAkab](https://github.com/ElAkab)
-- Live: [echoflow-app.com](https://echoflow-app.com)
+[![GitHub](https://img.shields.io/badge/GitHub-ElAkab-181717?logo=github)](https://github.com/ElAkab)
+[![Twitter](https://img.shields.io/badge/Twitter-@El_Akab-1DA1F2?logo=twitter)](https://twitter.com/El_Akab)
