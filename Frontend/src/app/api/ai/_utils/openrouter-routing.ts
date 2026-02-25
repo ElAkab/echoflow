@@ -12,7 +12,7 @@ const DEFAULT_MODELS = [
 	// "google/gemini-flash-1.5-8b", // Le moins cher et très rapide
 	"anthropic/claude-3-haiku", // Le meilleur pour le texte fluide
 	"meta-llama/llama-3.1-8b-instruct", // L'open-source robuste
-	"deepseek/deepseek-chat", // Le génie low-cost
+	// "deepseek/deepseek-chat", // Le génie low-cost
 	"mistralai/mistral-7b-instruct", // La touche française, très efficace
 ];
 
